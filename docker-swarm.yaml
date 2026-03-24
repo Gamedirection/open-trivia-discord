@@ -1,14 +1,17 @@
 services:
   discord-bot:
-    build: .
     image: ghcr.io/gamedirection/open-trivia-discord:latest
     env_file:
       - .env
-    restart: unless-stopped
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     volumes:
       - bot_state:/tmp
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      placement:
+        constraints:
+          - node.role == manager
 
 volumes:
   bot_state:

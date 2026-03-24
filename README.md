@@ -138,3 +138,30 @@ docker compose logs -f
 ```
 
 The included [docker-compose.yml](./docker-compose.yml) starts a single `discord-bot` service and persists the local runtime state file in a named Docker volume mounted at `/tmp`.
+
+On Linux, the Compose file also maps `host.docker.internal` to Docker's host gateway so the bot can reach a locally running Open-Trivia backend such as `http://host.docker.internal:3001`.
+
+## Docker Swarm
+
+The bot repo also includes a Swarm stack file at [docker-swarm.yaml](./docker-swarm.yaml).
+
+1. Create a local env file:
+
+```bash
+cp .env.example .env
+```
+
+2. Fill in the required Discord and Open-Trivia settings in `.env`.
+
+3. Deploy the stack:
+
+```bash
+docker stack deploy -c docker-swarm.yaml open-trivia-discord
+```
+
+4. Inspect service state:
+
+```bash
+docker stack services open-trivia-discord
+docker service logs -f open-trivia-discord_discord-bot
+```
