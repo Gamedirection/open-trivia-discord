@@ -1,0 +1,12 @@
+services:
+  discord-bot:
+    build: .
+    image: ghcr.io/gamedirection/open-trivia-discord:latest
+    env_file:
+      - .env
+    restart: unless-stopped
+    volumes:
+      - bot_state:/tmp
+
+volumes:
+  bot_state:

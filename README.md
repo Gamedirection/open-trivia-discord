@@ -2,6 +2,8 @@
 
 Discord bot service for Open-Trivia. This service is designed to live as its own deployment and call the main Open-Trivia backend over HTTP using a bot API token.
 
+See [CHANGELOG.md](./CHANGELOG.md) for bot release history.
+
 ## Features
 
 - Registers `/ot`, `/leaderboard`, and `/otschedule` slash commands on startup.
@@ -51,6 +53,11 @@ Optional:
 - `BOT_STORAGE_PATH`
 - `BOT_SCHEDULE_POLL_MS`
 - `BOT_QUESTION_TIMEOUT_SECONDS`
+
+Typical production values:
+
+- `BOT_API_BASE_URL=https://trivia.gamedirection.net/api`
+- `BOT_PUBLIC_APP_URL=https://trivia.gamedirection.net`
 
 ## Runtime state
 
@@ -105,3 +112,29 @@ npm start
 docker build -t open-trivia-discord .
 docker run --env-file .env open-trivia-discord
 ```
+
+## Docker Compose
+
+The bot can also run as its own Compose project from this folder.
+
+1. Create a local env file:
+
+```bash
+cp .env.example .env
+```
+
+2. Fill in the required Discord and Open-Trivia settings in `.env`.
+
+3. Start the bot:
+
+```bash
+docker compose up -d --build
+```
+
+4. Inspect logs:
+
+```bash
+docker compose logs -f
+```
+
+The included [docker-compose.yml](./docker-compose.yml) starts a single `discord-bot` service and persists the local runtime state file in a named Docker volume mounted at `/tmp`.
