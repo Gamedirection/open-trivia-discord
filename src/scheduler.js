@@ -24,11 +24,17 @@ export class Scheduler {
     this.client = client;
     this.pollMs = pollMs;
     this.interval = null;
+    this.lastAuthErrorAt = 0;
   }
 
   start() {
     this.interval = setInterval(() => {
       this.tick().catch((err) => {
+        if (String(err?.message || '').includes('Bot authentication required')) {
+          const now = Date.now();
+          if (now - this.lastAuthErrorAt < 60000) return;
+          this.lastAuthErrorAt = now;
+        }
         console.error('Scheduler tick failed', err);
       });
     }, this.pollMs);

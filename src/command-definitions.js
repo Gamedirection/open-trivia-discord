@@ -41,6 +41,12 @@ export function buildCommandDefinitions() {
         return configured;
       }),
     new SlashCommandBuilder()
+      .setName('categories')
+      .setDescription('List available Open-Trivia categories.'),
+    new SlashCommandBuilder()
+      .setName('help')
+      .setDescription('Show bot usage, version, and health information.'),
+    new SlashCommandBuilder()
       .setName('otschedule')
       .setDescription('Manage recurring Open-Trivia questions for this server.')
       .addSubcommand((subcommand) =>

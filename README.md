@@ -6,8 +6,9 @@ See [CHANGELOG.md](./CHANGELOG.md) for bot release history.
 
 ## Features
 
-- Registers `/ot`, `/leaderboard`, and `/otschedule` slash commands on startup.
+- Registers `/ot`, `/categories`, `/leaderboard`, `/help`, and `/otschedule` slash commands on startup.
 - Supports private DM trivia and public channel trivia with answer buttons.
+- Supports `/help` usage guidance with site link, version, uptime, gateway ping, and backend reachability.
 - Tracks per-question guesses and updates the message with the current guess count.
 - Polls backend-managed per-guild/channel schedules for:
   - daily trivia at a configured time
@@ -76,8 +77,13 @@ Options:
 
 Behavior:
 
+- With no arguments, `/ot` starts one random trivia question.
 - In DMs, only the requesting user can answer.
 - In guild channels, anyone in the channel can answer once.
+
+### `/categories`
+
+Lists the available Open-Trivia categories from the backend.
 
 ### `/leaderboard`
 
@@ -98,6 +104,17 @@ Subcommands:
 - `daily <HH:MM> [category] [count]`
 - `every <minutes|hours> <every> [category] [count]`
 - `disable <id>`
+
+### `/help`
+
+Shows:
+
+- a link back to the main Open-Trivia site
+- command usage guidance
+- bot version
+- current heartbeat timestamp
+- uptime and gateway ping
+- backend health probe result
 
 ## Run locally
 

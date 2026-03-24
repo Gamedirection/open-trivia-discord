@@ -78,6 +78,10 @@ export class BackendClient {
     });
   }
 
+  async fetchCategories() {
+    return this.request('/bot/categories');
+  }
+
   async createSchedule({ guildId, channelId, category, count = 1, scheduleKind, intervalMinutes, dailyTime }) {
     return this.request('/bot/schedules', {
       method: 'POST',

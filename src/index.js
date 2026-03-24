@@ -18,6 +18,8 @@ import { SessionManager } from './session-manager.js';
 const config = loadConfig();
 const store = new RuntimeStore(config.storagePath);
 store.load();
+const startedAt = Date.now();
+const botVersion = process.env.npm_package_version || '0.1.0';
 
 const backendClient = new BackendClient({
   baseUrl: config.apiBaseUrl,
@@ -77,15 +79,34 @@ function leaderboardEmbed(result, title) {
     );
 }
 
+function formatUptime(ms) {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const parts = [];
+  if (days) parts.push(`${days}d`);
+  if (hours || parts.length) parts.push(`${hours}h`);
+  if (minutes || parts.length) parts.push(`${minutes}m`);
+  parts.push(`${seconds}s`);
+  return parts.join(' ');
+}
+
 async function handleOtCommand(interaction) {
   const category = interaction.options.getString('category');
   const count = interaction.options.getInteger('count') || 1;
-  const mode = interaction.channel?.isDMBased?.() ? 'private' : 'public';
+  const mode = interaction.guildId ? 'public' : 'private';
   await interaction.deferReply({ ephemeral: mode === 'private' });
   try {
+    const channel = {
+      id: interaction.channelId,
+      isDMBased: () => mode === 'private',
+      send: async (payload) => interaction.followUp(payload)
+    };
     const sessions = await sessionManager.createSession({
       client,
-      channel: interaction.channel,
+      channel,
       mode,
       ownerDiscordUserId: interaction.user.id,
       guildId: interaction.guildId,
@@ -99,6 +120,65 @@ async function handleOtCommand(interaction) {
   } catch (err) {
     await interaction.editReply({ content: `Could not start trivia: ${err.message}` });
   }
+}
+
+async function handleCategoriesCommand(interaction) {
+  await interaction.deferReply({ ephemeral: true });
+  try {
+    const categories = await backendClient.fetchCategories();
+    if (!Array.isArray(categories) || !categories.length) {
+      await interaction.editReply({ content: 'No categories are configured yet.' });
+      return;
+    }
+    const content = categories.map((item) => `- ${item.name}`).join('\n');
+    await interaction.editReply({ content });
+  } catch (err) {
+    await interaction.editReply({ content: `Could not load categories: ${err.message}` });
+  }
+}
+
+async function handleHelpCommand(interaction) {
+  await interaction.deferReply({ ephemeral: true });
+  let backendStatus = 'ok';
+  try {
+    await backendClient.fetchCategories();
+  } catch (err) {
+    backendStatus = `error: ${err.message}`;
+  }
+  const embed = new EmbedBuilder()
+    .setTitle('Open-Trivia Bot Help')
+    .setDescription(`Main site: ${config.publicAppUrl}`)
+    .addFields(
+      {
+        name: 'Commands',
+        value: [
+          '`/ot` starts one random trivia question.',
+          '`/ot <category> <count>` starts filtered trivia.',
+          '`/categories` lists available categories.',
+          '`/leaderboard [category] [timeframe]` shows server and global standings.',
+          '`/otschedule` manages recurring trivia in the current channel.'
+        ].join('\n')
+      },
+      {
+        name: 'How It Works',
+        value: [
+          'Use `/ot` in a server channel for shared button-based trivia.',
+          'DM the bot or mention it to get a private one-on-one question.',
+          'Link your Discord account to Open-Trivia so correct answers count toward the leaderboard.'
+        ].join('\n')
+      },
+      {
+        name: 'Health',
+        value: [
+          `Version: \`${botVersion}\``,
+          `Heartbeat: \`${new Date().toISOString()}\``,
+          `Uptime: \`${formatUptime(Date.now() - startedAt)}\``,
+          `Gateway ping: \`${Number.isFinite(client.ws.ping) ? `${Math.round(client.ws.ping)}ms` : 'n/a'}\``,
+          `Backend: \`${backendStatus}\``
+        ].join('\n')
+      }
+    );
+  await interaction.editReply({ embeds: [embed] });
 }
 
 function describeSchedule(schedule) {
@@ -209,7 +289,9 @@ async function handleLeaderboardCommand(interaction) {
 
 async function handlePromptedMessage(message) {
   if (message.author.bot) return;
-  const isDm = message.channel?.isDMBased?.();
+  const channel = message.channel || await client.channels.fetch(message.channelId).catch(() => null);
+  if (!channel) return;
+  const isDm = channel?.isDMBased?.();
   const mentioned = message.mentions?.users?.has?.(client.user.id);
   if (!isDm && !mentioned) return;
   const category = String(message.content || '')
@@ -218,7 +300,7 @@ async function handlePromptedMessage(message) {
   try {
     await sessionManager.createSession({
       client,
-      channel: message.channel,
+      channel,
       mode: 'private',
       ownerDiscordUserId: message.author.id,
       guildId: message.guildId,
@@ -250,6 +332,14 @@ client.on('interactionCreate', async (interaction) => {
   }
   if (interaction.commandName === 'leaderboard') {
     await handleLeaderboardCommand(interaction);
+    return;
+  }
+  if (interaction.commandName === 'categories') {
+    await handleCategoriesCommand(interaction);
+    return;
+  }
+  if (interaction.commandName === 'help') {
+    await handleHelpCommand(interaction);
     return;
   }
   if (interaction.commandName === 'otschedule') {
