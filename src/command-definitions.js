@@ -52,13 +52,23 @@ export function buildCommandDefinitions() {
       .addSubcommand((subcommand) =>
         subcommand
           .setName('list')
-          .setDescription('List schedules configured for this server'))
+          .setDescription('List schedules configured for this server')
+          .addChannelOption((option) =>
+            option
+              .setName('channel')
+              .setDescription('Optional channel to filter schedules for')
+              .setRequired(false)))
       .addSubcommand((subcommand) =>
         subcommand
           .setName('daily')
-          .setDescription('Post daily trivia in this channel')
+          .setDescription('Post daily trivia in a selected channel')
           .addStringOption((option) =>
             option.setName('time').setDescription('HH:MM, 24-hour clock').setRequired(true))
+          .addChannelOption((option) =>
+            option
+              .setName('channel')
+              .setDescription('Channel where the bot should post')
+              .setRequired(false))
           .addStringOption((option) =>
             option.setName('category').setDescription('Optional category filter').setRequired(false))
           .addIntegerOption((option) =>
@@ -66,7 +76,7 @@ export function buildCommandDefinitions() {
       .addSubcommand((subcommand) =>
         subcommand
           .setName('every')
-          .setDescription('Post trivia every X minutes or hours in this channel')
+          .setDescription('Post trivia every X minutes or hours in a selected channel')
           .addStringOption((option) =>
             option
               .setName('unit')
@@ -78,6 +88,11 @@ export function buildCommandDefinitions() {
               ))
           .addIntegerOption((option) =>
             option.setName('every').setDescription('How often to post').setMinValue(1).setMaxValue(1440).setRequired(true))
+          .addChannelOption((option) =>
+            option
+              .setName('channel')
+              .setDescription('Channel where the bot should post')
+              .setRequired(false))
           .addStringOption((option) =>
             option.setName('category').setDescription('Optional category filter').setRequired(false))
           .addIntegerOption((option) =>

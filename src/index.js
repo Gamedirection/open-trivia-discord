@@ -196,13 +196,18 @@ async function handleScheduleCommand(interaction) {
     return;
   }
   const subcommand = interaction.options.getSubcommand();
+  const selectedChannel = interaction.options.getChannel('channel') || interaction.channel;
+  if (!selectedChannel?.isTextBased?.()) {
+    await interaction.reply({ content: 'Choose a text channel for scheduled trivia.', ephemeral: true });
+    return;
+  }
   if (subcommand === 'list') {
     try {
       const schedules = await backendClient.fetchSchedules({ guildId: interaction.guildId });
-      const channelSchedules = schedules.filter((item) => item.channel_id === interaction.channelId);
+      const channelSchedules = schedules.filter((item) => item.channel_id === selectedChannel.id);
       const content = channelSchedules.length
         ? channelSchedules.map((item) => describeSchedule(item)).join('\n')
-        : 'No schedules configured for this channel.';
+        : `No schedules configured for ${selectedChannel}.`;
       await interaction.reply({ content, ephemeral: true });
     } catch (err) {
       await interaction.reply({ content: `Could not load schedules: ${err.message}`, ephemeral: true });
@@ -230,7 +235,7 @@ async function handleScheduleCommand(interaction) {
   if (subcommand === 'daily') {
     payload = {
       guildId: interaction.guildId,
-      channelId: interaction.channelId,
+      channelId: selectedChannel.id,
       category,
       count,
       scheduleKind: 'daily',
@@ -241,7 +246,7 @@ async function handleScheduleCommand(interaction) {
     const every = interaction.options.getInteger('every', true);
     payload = {
       guildId: interaction.guildId,
-      channelId: interaction.channelId,
+      channelId: selectedChannel.id,
       category,
       count,
       scheduleKind: 'interval',
@@ -255,7 +260,7 @@ async function handleScheduleCommand(interaction) {
   try {
     const schedule = await backendClient.createSchedule(payload);
     await interaction.reply({
-      content: `Saved schedule \`${schedule.id}\` for this channel.\n${describeSchedule(schedule)}`,
+      content: `Saved schedule \`${schedule.id}\` for ${selectedChannel}.\n${describeSchedule(schedule)}`,
       ephemeral: true
     });
   } catch (err) {

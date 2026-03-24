@@ -84,7 +84,7 @@ export class SessionManager {
           ? question.options.map((option) => ({
             key: String(option.char || option.key || '').toUpperCase(),
             label: option.text || option.label || ''
-          }))
+          })).filter((option) => option.key && String(option.label || '').trim())
           : [],
         correctAnswer: null,
         guesses: {},

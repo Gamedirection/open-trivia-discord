@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.1.2 - 2026-03-24
+
+- Added optional `channel` targeting to `/otschedule list`, `/otschedule daily`, and `/otschedule every`.
+- Kept optional schedule `category` support and documented category-plus-channel scheduling behavior.
+- Hid blank answer slots so bot trivia messages only render real answer buttons.
+
 ## v0.1.1 - 2026-03-24
 
 - Added `/categories` to list available trivia categories from the backend.
