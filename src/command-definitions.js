@@ -1,0 +1,86 @@
+import { SlashCommandBuilder } from 'discord.js';
+
+export const leaderboardTimeframes = [
+  { name: 'today', value: 'day' },
+  { name: 'this month', value: 'month' },
+  { name: 'this year', value: 'year' },
+  { name: 'all time', value: 'all' }
+];
+
+export function buildCommandDefinitions() {
+  return [
+    new SlashCommandBuilder()
+      .setName('ot')
+      .setDescription('Spawn Open-Trivia questions in this channel or DM.')
+      .addStringOption((option) =>
+        option
+          .setName('category')
+          .setDescription('Category name to filter questions')
+          .setRequired(false))
+      .addIntegerOption((option) =>
+        option
+          .setName('count')
+          .setDescription('Number of questions to ask')
+          .setMinValue(1)
+          .setMaxValue(25)
+          .setRequired(false)),
+    new SlashCommandBuilder()
+      .setName('leaderboard')
+      .setDescription('Show the current server and global Open-Trivia leaderboards.')
+      .addStringOption((option) =>
+        option
+          .setName('category')
+          .setDescription('Category name to filter leaderboard results')
+          .setRequired(false))
+      .addStringOption((option) => {
+        const configured = option
+          .setName('timeframe')
+          .setDescription('Leaderboard timeframe')
+          .setRequired(false);
+        leaderboardTimeframes.forEach((choice) => configured.addChoices(choice));
+        return configured;
+      }),
+    new SlashCommandBuilder()
+      .setName('otschedule')
+      .setDescription('Manage recurring Open-Trivia questions for this server.')
+      .addSubcommand((subcommand) =>
+        subcommand
+          .setName('list')
+          .setDescription('List schedules configured for this server'))
+      .addSubcommand((subcommand) =>
+        subcommand
+          .setName('daily')
+          .setDescription('Post daily trivia in this channel')
+          .addStringOption((option) =>
+            option.setName('time').setDescription('HH:MM, 24-hour clock').setRequired(true))
+          .addStringOption((option) =>
+            option.setName('category').setDescription('Optional category filter').setRequired(false))
+          .addIntegerOption((option) =>
+            option.setName('count').setDescription('Number of questions each run').setMinValue(1).setMaxValue(20).setRequired(false)))
+      .addSubcommand((subcommand) =>
+        subcommand
+          .setName('every')
+          .setDescription('Post trivia every X minutes or hours in this channel')
+          .addStringOption((option) =>
+            option
+              .setName('unit')
+              .setDescription('Time unit')
+              .setRequired(true)
+              .addChoices(
+                { name: 'minutes', value: 'minutes' },
+                { name: 'hours', value: 'hours' }
+              ))
+          .addIntegerOption((option) =>
+            option.setName('every').setDescription('How often to post').setMinValue(1).setMaxValue(1440).setRequired(true))
+          .addStringOption((option) =>
+            option.setName('category').setDescription('Optional category filter').setRequired(false))
+          .addIntegerOption((option) =>
+            option.setName('count').setDescription('Number of questions each run').setMinValue(1).setMaxValue(20).setRequired(false)))
+      .addSubcommand((subcommand) =>
+        subcommand
+          .setName('disable')
+          .setDescription('Disable and remove a schedule by ID')
+          .addStringOption((option) =>
+            option.setName('id').setDescription('Schedule ID from /otschedule list').setRequired(true)))
+  ].map((command) => command.toJSON());
+}

@@ -1,0 +1,61 @@
+function computeNextRun(schedule, from = new Date()) {
+  const now = new Date(from);
+  const scheduleKind = schedule.schedule_kind || schedule.scheduleKind || schedule.mode;
+  if (scheduleKind === 'daily') {
+    const dailyTime = schedule.daily_time || schedule.dailyTime || schedule.at || '12:00';
+    const [hour, minute] = String(dailyTime).split(':').map((part) => Number(part) || 0);
+    const next = new Date(now);
+    next.setHours(hour, minute, 0, 0);
+    if (next <= now) next.setDate(next.getDate() + 1);
+    return next.toISOString();
+  }
+  const intervalMinutes = Math.max(1, Number(
+    schedule.interval_minutes
+      || schedule.intervalMinutes
+      || (schedule.mode === 'hours' ? Number(schedule.every || 1) * 60 : schedule.every || 1)
+  ));
+  return new Date(now.getTime() + intervalMinutes * 60 * 1000).toISOString();
+}
+
+export class Scheduler {
+  constructor({ backendClient, sessionManager, client, pollMs }) {
+    this.backendClient = backendClient;
+    this.sessionManager = sessionManager;
+    this.client = client;
+    this.pollMs = pollMs;
+    this.interval = null;
+  }
+
+  start() {
+    this.interval = setInterval(() => {
+      this.tick().catch((err) => {
+        console.error('Scheduler tick failed', err);
+      });
+    }, this.pollMs);
+  }
+
+  stop() {
+    if (this.interval) clearInterval(this.interval);
+  }
+
+  async tick() {
+    const schedules = await this.backendClient.fetchSchedules({ dueOnly: true });
+    for (const schedule of schedules) {
+      const channel = await this.client.channels.fetch(schedule.channel_id).catch(() => null);
+      if (!channel?.isTextBased?.()) continue;
+      await this.sessionManager.createSession({
+        client: this.client,
+        channel,
+        mode: 'public',
+        ownerDiscordUserId: null,
+        guildId: schedule.guild_id,
+        category: schedule.category_name || null,
+        count: Number(schedule.question_count || 1)
+      });
+      await this.backendClient.markScheduleRun(schedule.id);
+    }
+  }
+}
+
+export { computeNextRun };
+Scheduler.computeNextRun = computeNextRun;

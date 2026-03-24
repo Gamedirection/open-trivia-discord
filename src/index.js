@@ -1,0 +1,263 @@
+import {
+  ActivityType,
+  Client,
+  EmbedBuilder,
+  Events,
+  GatewayIntentBits,
+  Partials,
+  REST,
+  Routes
+} from 'discord.js';
+import { BackendClient } from './backend-client.js';
+import { buildCommandDefinitions } from './command-definitions.js';
+import { loadConfig } from './config.js';
+import { RuntimeStore } from './runtime-store.js';
+import { Scheduler } from './scheduler.js';
+import { SessionManager } from './session-manager.js';
+
+const config = loadConfig();
+const store = new RuntimeStore(config.storagePath);
+store.load();
+
+const backendClient = new BackendClient({
+  baseUrl: config.apiBaseUrl,
+  token: config.apiToken,
+  publicAppUrl: config.publicAppUrl
+});
+
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.DirectMessages,
+    GatewayIntentBits.MessageContent
+  ],
+  partials: [Partials.Channel]
+});
+
+const sessionManager = new SessionManager({
+  store,
+  backendClient,
+  questionTimeoutSeconds: config.questionTimeoutSeconds
+});
+
+const scheduler = new Scheduler({
+  backendClient,
+  sessionManager,
+  client,
+  pollMs: config.schedulePollMs
+});
+
+async function registerCommands() {
+  const rest = new REST({ version: '10' }).setToken(config.discordToken);
+  await rest.put(
+    Routes.applicationCommands(config.discordClientId),
+    { body: buildCommandDefinitions() }
+  );
+}
+
+function leaderboardEmbed(result, title) {
+  const rows = Array.isArray(result?.entries)
+    ? result.entries
+    : Array.isArray(result)
+      ? result
+      : [];
+  if (!rows.length) {
+    return new EmbedBuilder().setTitle(title).setDescription('No scores yet.');
+  }
+  return new EmbedBuilder()
+    .setTitle(title)
+    .setDescription(
+      rows.map((row, idx) => {
+        const accuracy = Number(row.total_answered || 0) > 0
+          ? ` · ${Math.round((Number(row.correct_answered || 0) / Number(row.total_answered || 1)) * 100)}%`
+          : '';
+        return `**${idx + 1}.** ${row.display_name || row.email || 'Player'} — ${row.score} pts${accuracy}`;
+      }).join('\n')
+    );
+}
+
+async function handleOtCommand(interaction) {
+  const category = interaction.options.getString('category');
+  const count = interaction.options.getInteger('count') || 1;
+  const mode = interaction.channel?.isDMBased?.() ? 'private' : 'public';
+  await interaction.deferReply({ ephemeral: mode === 'private' });
+  try {
+    const sessions = await sessionManager.createSession({
+      client,
+      channel: interaction.channel,
+      mode,
+      ownerDiscordUserId: interaction.user.id,
+      guildId: interaction.guildId,
+      category,
+      count
+    });
+    const response = sessions.length
+      ? `Started ${sessions.length} trivia question${sessions.length === 1 ? '' : 's'} in ${mode === 'private' ? 'this DM' : 'the channel'}.`
+      : 'No questions were returned by the backend.';
+    await interaction.editReply({ content: response });
+  } catch (err) {
+    await interaction.editReply({ content: `Could not start trivia: ${err.message}` });
+  }
+}
+
+function describeSchedule(schedule) {
+  const mode = schedule.schedule_kind === 'daily'
+    ? `daily at ${schedule.daily_time}`
+    : `every ${schedule.interval_minutes >= 60 && schedule.interval_minutes % 60 === 0
+      ? `${schedule.interval_minutes / 60} hour(s)`
+      : `${schedule.interval_minutes} minute(s)`}`;
+  return `- \`${schedule.id}\` · ${mode} · ${schedule.question_count} question(s)${schedule.category_name ? ` · ${schedule.category_name}` : ''}${schedule.next_run ? ` · next ${new Date(schedule.next_run).toLocaleString()}` : ''}`;
+}
+
+async function handleScheduleCommand(interaction) {
+  if (!interaction.guildId || !interaction.channelId) {
+    await interaction.reply({ content: 'Scheduling is only available inside a server channel.', ephemeral: true });
+    return;
+  }
+  const subcommand = interaction.options.getSubcommand();
+  if (subcommand === 'list') {
+    try {
+      const schedules = await backendClient.fetchSchedules({ guildId: interaction.guildId });
+      const channelSchedules = schedules.filter((item) => item.channel_id === interaction.channelId);
+      const content = channelSchedules.length
+        ? channelSchedules.map((item) => describeSchedule(item)).join('\n')
+        : 'No schedules configured for this channel.';
+      await interaction.reply({ content, ephemeral: true });
+    } catch (err) {
+      await interaction.reply({ content: `Could not load schedules: ${err.message}`, ephemeral: true });
+    }
+    return;
+  }
+  if (subcommand === 'disable') {
+    const id = Number(interaction.options.getString('id', true));
+    if (!Number.isFinite(id)) {
+      await interaction.reply({ content: 'Schedule id must be numeric. Use `/otschedule list` to find it.', ephemeral: true });
+      return;
+    }
+    try {
+      await backendClient.deleteSchedule(id);
+      await interaction.reply({ content: `Removed schedule \`${id}\`.`, ephemeral: true });
+    } catch (err) {
+      await interaction.reply({ content: `Could not remove schedule: ${err.message}`, ephemeral: true });
+    }
+    return;
+  }
+
+  const category = interaction.options.getString('category');
+  const count = interaction.options.getInteger('count') || 1;
+  let payload = null;
+  if (subcommand === 'daily') {
+    payload = {
+      guildId: interaction.guildId,
+      channelId: interaction.channelId,
+      category,
+      count,
+      scheduleKind: 'daily',
+      dailyTime: interaction.options.getString('time', true)
+    };
+  } else if (subcommand === 'every') {
+    const unit = interaction.options.getString('unit', true);
+    const every = interaction.options.getInteger('every', true);
+    payload = {
+      guildId: interaction.guildId,
+      channelId: interaction.channelId,
+      category,
+      count,
+      scheduleKind: 'interval',
+      intervalMinutes: unit === 'hours' ? every * 60 : every
+    };
+  }
+  if (!payload) {
+    await interaction.reply({ content: 'Unsupported schedule request.', ephemeral: true });
+    return;
+  }
+  try {
+    const schedule = await backendClient.createSchedule(payload);
+    await interaction.reply({
+      content: `Saved schedule \`${schedule.id}\` for this channel.\n${describeSchedule(schedule)}`,
+      ephemeral: true
+    });
+  } catch (err) {
+    await interaction.reply({
+      content: `Could not save schedule: ${err.message}`,
+      ephemeral: true
+    });
+  }
+}
+
+async function handleLeaderboardCommand(interaction) {
+  const category = interaction.options.getString('category');
+  const timeframe = interaction.options.getString('timeframe') || 'all';
+  await interaction.deferReply();
+  try {
+    const data = await backendClient.fetchLeaderboard({
+      guildId: interaction.guildId,
+      category,
+      timeframe
+    });
+    await interaction.editReply({
+      embeds: [
+        leaderboardEmbed(data.server, `Server Leaderboard${category ? ` · ${category}` : ''}`),
+        leaderboardEmbed(data.global, `Global Leaderboard${category ? ` · ${category}` : ''}`)
+      ]
+    });
+  } catch (err) {
+    await interaction.editReply({ content: `Could not load leaderboard: ${err.message}` });
+  }
+}
+
+async function handlePromptedMessage(message) {
+  if (message.author.bot) return;
+  const isDm = message.channel?.isDMBased?.();
+  const mentioned = message.mentions?.users?.has?.(client.user.id);
+  if (!isDm && !mentioned) return;
+  const category = String(message.content || '')
+    .replace(new RegExp(`<@!?${client.user.id}>`, 'g'), '')
+    .trim() || null;
+  try {
+    await sessionManager.createSession({
+      client,
+      channel: message.channel,
+      mode: 'private',
+      ownerDiscordUserId: message.author.id,
+      guildId: message.guildId,
+      category,
+      count: 1
+    });
+  } catch (err) {
+    await message.reply(`Could not start trivia: ${err.message}`);
+  }
+}
+
+client.once('ready', async (readyClient) => {
+  console.log(`Discord bot ready as ${readyClient.user.tag}`);
+  readyClient.user.setActivity('Open-Trivia', { type: ActivityType.Playing });
+  sessionManager.restore(readyClient);
+  scheduler.start();
+});
+
+client.on('interactionCreate', async (interaction) => {
+  if (interaction.isButton()) {
+    const handled = await sessionManager.handleButtonInteraction(client, interaction);
+    if (handled) return;
+  }
+
+  if (!interaction.isChatInputCommand()) return;
+  if (interaction.commandName === 'ot') {
+    await handleOtCommand(interaction);
+    return;
+  }
+  if (interaction.commandName === 'leaderboard') {
+    await handleLeaderboardCommand(interaction);
+    return;
+  }
+  if (interaction.commandName === 'otschedule') {
+    await handleScheduleCommand(interaction);
+  }
+});
+
+client.on(Events.MessageCreate, handlePromptedMessage);
+
+await registerCommands();
+await client.login(config.discordToken);
