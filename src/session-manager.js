@@ -15,6 +15,12 @@ function buildAnswerRows(session) {
   return [new ActionRowBuilder().addComponents(buttons)];
 }
 
+function formatDifficultyLabel(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (!normalized) return 'Medium';
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+}
+
 function sessionSummaryEmbed(session, statusText) {
   return new EmbedBuilder()
     .setTitle(`Open-Trivia: ${session.category || 'General'}`)
@@ -168,9 +174,10 @@ export class SessionManager {
           ephemeral: true
         });
       } else {
+        const difficultyLabel = formatDifficultyLabel(result.difficulty);
         await interaction.followUp({
           content: result.is_correct
-            ? `Correct. +${result.points_awarded || 0} points.`
+            ? `Correct. This ${difficultyLabel} question was +${result.points_awarded || 0} points.`
             : `Incorrect. Correct answer: ${result.correct_answer_label || result.correct_answer || 'Unknown'}.`,
           ephemeral: true
         });

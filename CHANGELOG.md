@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.1.6 - 2026-03-26
+
+- Fixed `/schedule-trivia remove` so schedule deletion no longer fails channel validation.
+- Fixed scheduled channel resolution for slash-command channel selections when creating recurring trivia.
+- Added Discord-specific fixed scoring values by difficulty, now defaulting to Easy `+5`, Medium `+10`, and Hard `+15`.
+- Updated correct-answer responses to include the difficulty and awarded points.
+
 ## v0.1.4 - 2026-03-26
 
 - Replaced `/ot` with `/trivia`.
