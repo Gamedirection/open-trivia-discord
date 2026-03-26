@@ -33,7 +33,7 @@ export class BackendClient {
     return data;
   }
 
-  async fetchQuestions({ category, count = 1, guildId, channelId, mode }) {
+  async fetchQuestions({ category, count = 1, guildId, channelId, mode, closeAfterSeconds }) {
     return this.request('/bot/trivia/questions', {
       method: 'POST',
       body: {
@@ -41,7 +41,8 @@ export class BackendClient {
         count,
         guildId,
         channelId,
-        mode
+        mode,
+        closeAfterSeconds
       }
     });
   }

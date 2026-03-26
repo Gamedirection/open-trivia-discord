@@ -164,7 +164,7 @@ async function handleHelpCommand(interaction) {
         value: [
           'Use `/ot` in a server channel for shared button-based trivia.',
           'DM the bot or mention it to get a private one-on-one question.',
-          'Link your Discord account to Open-Trivia so correct answers count toward the leaderboard.'
+          'Discord players are created in Open-Trivia automatically on first answer so scores count right away.'
         ].join('\n')
       },
       {
@@ -187,7 +187,7 @@ function describeSchedule(schedule) {
     : `every ${schedule.interval_minutes >= 60 && schedule.interval_minutes % 60 === 0
       ? `${schedule.interval_minutes / 60} hour(s)`
       : `${schedule.interval_minutes} minute(s)`}`;
-  return `- \`${schedule.id}\` · ${mode} · ${schedule.question_count} question(s)${schedule.category_name ? ` · ${schedule.category_name}` : ''}${schedule.next_run ? ` · next ${new Date(schedule.next_run).toLocaleString()}` : ''}`;
+  return `- \`${schedule.id}\` · <#${schedule.channel_id}> · ${mode} · ${schedule.question_count} question(s)${schedule.category_name ? ` · ${schedule.category_name}` : ''}${schedule.next_run ? ` · next ${new Date(schedule.next_run).toLocaleString()}` : ''}`;
 }
 
 async function handleScheduleCommand(interaction) {
@@ -196,22 +196,27 @@ async function handleScheduleCommand(interaction) {
     return;
   }
   const subcommand = interaction.options.getSubcommand();
-  const selectedChannel = interaction.options.getChannel('channel') || interaction.channel;
-  if (!selectedChannel?.isTextBased?.()) {
-    await interaction.reply({ content: 'Choose a text channel for scheduled trivia.', ephemeral: true });
-    return;
-  }
   if (subcommand === 'list') {
     try {
+      const selectedChannel = interaction.options.getChannel('channel');
       const schedules = await backendClient.fetchSchedules({ guildId: interaction.guildId });
-      const channelSchedules = schedules.filter((item) => item.channel_id === selectedChannel.id);
-      const content = channelSchedules.length
-        ? channelSchedules.map((item) => describeSchedule(item)).join('\n')
-        : `No schedules configured for ${selectedChannel}.`;
+      const filteredSchedules = selectedChannel
+        ? schedules.filter((item) => item.channel_id === selectedChannel.id)
+        : schedules;
+      const content = filteredSchedules.length
+        ? filteredSchedules.map((item) => describeSchedule(item)).join('\n')
+        : selectedChannel
+          ? `No schedules configured for ${selectedChannel}.`
+          : 'No schedules configured for this server.';
       await interaction.reply({ content, ephemeral: true });
     } catch (err) {
       await interaction.reply({ content: `Could not load schedules: ${err.message}`, ephemeral: true });
     }
+    return;
+  }
+  const selectedChannel = interaction.options.getChannel('channel') || interaction.channel;
+  if (!selectedChannel?.isTextBased?.()) {
+    await interaction.reply({ content: 'Choose a text channel for scheduled trivia.', ephemeral: true });
     return;
   }
   if (subcommand === 'disable') {

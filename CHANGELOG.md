@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.1.3 - 2026-03-25
+
+- Changed the default trivia timeout to 24 hours.
+- Deletes expired trivia messages from Discord when a question times out.
+- Shows the correct answer privately when a user answers incorrectly.
+- Auto-creates Open-Trivia users for Discord players on first answer so scores still count.
+
 ## v0.1.2 - 2026-03-24
 
 - Added optional `channel` targeting to `/otschedule list`, `/otschedule daily`, and `/otschedule every`.

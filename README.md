@@ -10,6 +10,9 @@ See [CHANGELOG.md](./CHANGELOG.md) for bot release history.
 - Supports private DM trivia and public channel trivia with answer buttons.
 - Supports `/help` usage guidance with site link, version, uptime, gateway ping, and backend reachability.
 - Hides blank answer slots so True/False style questions only render the real buttons.
+- Defaults trivia sessions to a 24 hour timeout, then deletes the expired Discord message.
+- Shows incorrect answers privately with the correct answer text.
+- Auto-creates Open-Trivia users for Discord players on first answer so Discord-only play still scores.
 - Tracks per-question guesses and updates the message with the current guess count.
 - Polls backend-managed per-guild/channel schedules for:
   - daily trivia at a configured time
@@ -60,6 +63,7 @@ Typical production values:
 
 - `BOT_API_BASE_URL=https://trivia.gamedirection.net/api`
 - `BOT_PUBLIC_APP_URL=https://trivia.gamedirection.net`
+- `BOT_QUESTION_TIMEOUT_SECONDS=86400`
 
 ## Runtime state
 
@@ -81,6 +85,9 @@ Behavior:
 - With no arguments, `/ot` starts one random trivia question.
 - In DMs, only the requesting user can answer.
 - In guild channels, anyone in the channel can answer once.
+- Incorrect answers get a private reply with the correct answer.
+- Discord-only players are created in Open-Trivia automatically on first answer.
+- Expired questions are removed from Discord when their timeout is reached.
 
 ### `/categories`
 

@@ -24,6 +24,6 @@ export function loadConfig() {
     publicAppUrl: String(process.env.BOT_PUBLIC_APP_URL || 'http://localhost:3000').trim().replace(/\/+$/, ''),
     storagePath: path.resolve(process.env.BOT_STORAGE_PATH || '/tmp/open-trivia-discord-state.json'),
     schedulePollMs: Math.max(5000, numberFromEnv('BOT_SCHEDULE_POLL_MS', 15000)),
-    questionTimeoutSeconds: Math.max(15, numberFromEnv('BOT_QUESTION_TIMEOUT_SECONDS', 60))
+    questionTimeoutSeconds: Math.max(15, numberFromEnv('BOT_QUESTION_TIMEOUT_SECONDS', 86400))
   };
 }

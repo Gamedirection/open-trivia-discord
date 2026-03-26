@@ -64,7 +64,8 @@ export class SessionManager {
       count,
       guildId,
       channelId: channel.id,
-      mode: mode === 'private' ? 'direct' : mode
+      mode: mode === 'private' ? 'direct' : mode,
+      closeAfterSeconds: this.questionTimeoutSeconds
     });
     const items = Array.isArray(payload.sessions) ? payload.sessions : [];
     const sessions = [];
@@ -170,7 +171,7 @@ export class SessionManager {
         await interaction.followUp({
           content: result.is_correct
             ? `Correct. +${result.points_awarded || 0} points.`
-            : 'Incorrect.',
+            : `Incorrect. Correct answer: ${result.correct_answer_label || result.correct_answer || 'Unknown'}.`,
           ephemeral: true
         });
       }
@@ -211,6 +212,17 @@ export class SessionManager {
     const summary = timedOut
       ? `Time is up. ${guessCount} participant${guessCount === 1 ? '' : 's'} answered. Correct answer: ${correctAnswer}.`
       : `Question closed. ${guessCount} participant${guessCount === 1 ? '' : 's'} answered. Correct answer: ${correctAnswer}.`;
+
+    if (timedOut) {
+      await message.delete().catch(async () => {
+        await message.edit({
+          embeds: [sessionSummaryEmbed(session, summary)],
+          components: []
+        }).catch(() => {});
+      });
+      this.store.removeSession(sessionId);
+      return;
+    }
 
     await message.edit({
       embeds: [sessionSummaryEmbed(session, summary)],
