@@ -1,4 +1,4 @@
-import { SlashCommandBuilder } from 'discord.js';
+import { ChannelType, SlashCommandBuilder } from 'discord.js';
 
 export const leaderboardTimeframes = [
   { name: 'today', value: 'day' },
@@ -68,6 +68,7 @@ export function buildCommandDefinitions() {
             option
               .setName('channel')
               .setDescription('Channel where the bot should post')
+              .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
               .setRequired(false))
           .addStringOption((option) =>
             option.setName('category').setDescription('Optional category filter').setRequired(false))
@@ -87,11 +88,12 @@ export function buildCommandDefinitions() {
                 { name: 'hours', value: 'hours' }
               ))
           .addIntegerOption((option) =>
-            option.setName('every').setDescription('How often to post').setMinValue(1).setMaxValue(1440).setRequired(true))
+            option.setName('interval').setDescription('How often to post').setMinValue(1).setMaxValue(1440).setRequired(true))
           .addChannelOption((option) =>
             option
               .setName('channel')
               .setDescription('Channel where the bot should post')
+              .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
               .setRequired(false))
           .addStringOption((option) =>
             option.setName('category').setDescription('Optional category filter').setRequired(false))

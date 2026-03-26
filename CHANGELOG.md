@@ -4,6 +4,9 @@
 
 - Fixed `/schedule-trivia remove` so schedule deletion no longer fails channel validation.
 - Fixed scheduled channel resolution for slash-command channel selections when creating recurring trivia.
+- Renamed the recurring interval option to `interval` while keeping compatibility with older command registrations.
+- Fixed empty filtered schedule listings so they mention the selected channel instead of showing `[object Object]`.
+- Added support for displaying question images in Discord when the trivia item includes one.
 - Added Discord-specific fixed scoring values by difficulty, now defaulting to Easy `+5`, Medium `+10`, and Hard `+15`.
 - Updated correct-answer responses to include the difficulty and awarded points.
 

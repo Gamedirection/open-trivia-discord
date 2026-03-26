@@ -200,6 +200,13 @@ function describeSchedule(schedule) {
   return `- ID \`${schedule.id}\` · <#${schedule.channel_id}> · ${categoryLabel} · ${mode} · ${schedule.question_count} question(s)${schedule.next_run ? ` · next ${new Date(schedule.next_run).toLocaleString()}` : ''}`;
 }
 
+function formatChannelLabel(channel) {
+  const channelId = channel?.id;
+  if (channelId) return `<#${channelId}>`;
+  const channelName = String(channel?.name || '').trim();
+  return channelName || 'that channel';
+}
+
 async function resolveScheduleChannel(interaction) {
   const selectedChannel = interaction.options.getChannel('channel');
   const targetChannelId = selectedChannel?.id || interaction.channelId;
@@ -227,7 +234,7 @@ async function handleScheduleCommand(interaction) {
           ...filteredSchedules.map((item) => describeSchedule(item))
         ].join('\n')
         : selectedChannel
-          ? `No schedules configured for ${selectedChannel}.`
+          ? `No schedules configured for ${formatChannelLabel(selectedChannel)}.`
           : 'No schedules configured for this server.';
       await interaction.reply({ content, ephemeral: true });
     } catch (err) {
@@ -266,7 +273,7 @@ async function handleScheduleCommand(interaction) {
     };
   } else if (subcommand === 'every') {
     const unit = interaction.options.getString('unit', true);
-    const every = interaction.options.getInteger('every', true);
+    const every = interaction.options.getInteger('interval') ?? interaction.options.getInteger('every', true);
     payload = {
       guildId: interaction.guildId,
       channelId: selectedChannel.id,

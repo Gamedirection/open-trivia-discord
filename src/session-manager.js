@@ -22,7 +22,7 @@ function formatDifficultyLabel(value) {
 }
 
 function sessionSummaryEmbed(session, statusText) {
-  return new EmbedBuilder()
+  const embed = new EmbedBuilder()
     .setTitle(`Open-Trivia: ${session.category || 'General'}`)
     .setDescription(session.text)
     .addFields(
@@ -38,6 +38,10 @@ function sessionSummaryEmbed(session, statusText) {
       }
     )
     .setTimestamp(new Date(session.createdAt));
+  if (session.imageUrl) {
+    embed.setImage(session.imageUrl);
+  }
+  return embed;
 }
 
 export class SessionManager {
@@ -87,6 +91,7 @@ export class SessionManager {
         ownerDiscordUserId: ownerDiscordUserId || null,
         category: question.category || category || 'General',
         text: question.text,
+        imageUrl: question.image_url || null,
         options: Array.isArray(question.options)
           ? question.options.map((option) => ({
             key: String(option.char || option.key || '').toUpperCase(),
