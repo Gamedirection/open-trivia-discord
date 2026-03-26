@@ -98,6 +98,26 @@ export class BackendClient {
     });
   }
 
+  async createPendingQuestion({ categoryName, text, correct, optionB, optionC, optionD, complexity = 'medium', submittedBy, imageUrl }) {
+    return this.request('/bot/pending-questions', {
+      method: 'POST',
+      body: {
+        categoryName,
+        text,
+        options: {
+          a: correct,
+          b: optionB,
+          c: optionC,
+          d: optionD
+        },
+        correctAnswer: 'A',
+        complexity,
+        submittedBy,
+        imageUrl
+      }
+    });
+  }
+
   async updateSchedule(id, updates) {
     return this.request(`/bot/schedules/${id}`, {
       method: 'PATCH',

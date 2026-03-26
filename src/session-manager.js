@@ -9,7 +9,7 @@ function buildAnswerRows(session) {
   const buttons = session.options.map((option) =>
     new ButtonBuilder()
       .setCustomId(`ot-answer:${session.id}:${option.key}`)
-      .setLabel(`${option.key}: ${option.label}`)
+      .setLabel(option.label)
       .setStyle(ButtonStyle.Primary)
   );
   return [new ActionRowBuilder().addComponents(buttons)];
@@ -19,6 +19,19 @@ function formatDifficultyLabel(value) {
   const normalized = String(value || '').trim().toLowerCase();
   if (!normalized) return 'Medium';
   return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+}
+
+function normalizeQuestionImageUrl(imageUrl, publicAppUrl) {
+  const value = String(imageUrl || '').trim();
+  if (!value) return null;
+  try {
+    if (/^https?:\/\//i.test(value)) {
+      return new URL(value).toString();
+    }
+    return new URL(value, `${String(publicAppUrl || '').replace(/\/+$/, '')}/`).toString();
+  } catch {
+    return null;
+  }
 }
 
 function sessionSummaryEmbed(session, statusText) {
@@ -91,7 +104,7 @@ export class SessionManager {
         ownerDiscordUserId: ownerDiscordUserId || null,
         category: question.category || category || 'General',
         text: question.text,
-        imageUrl: question.image_url || null,
+        imageUrl: normalizeQuestionImageUrl(question.image_url, this.backendClient.publicAppUrl),
         options: Array.isArray(question.options)
           ? question.options.map((option) => ({
             key: String(option.char || option.key || '').toUpperCase(),

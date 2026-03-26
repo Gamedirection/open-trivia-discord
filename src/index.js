@@ -137,6 +137,40 @@ async function handleCategoriesCommand(interaction) {
   }
 }
 
+async function handleMakeQuestionCommand(interaction) {
+  await interaction.deferReply({ ephemeral: true });
+  try {
+    const categoryName = interaction.options.getString('category', true);
+    const text = interaction.options.getString('question', true);
+    const correct = interaction.options.getString('correct', true);
+    const optionB = interaction.options.getString('b', true);
+    const optionC = interaction.options.getString('c');
+    const optionD = interaction.options.getString('d');
+    const difficulty = interaction.options.getString('difficulty') || 'medium';
+    const imageUrl = interaction.options.getString('image_url');
+    const hasC = !!String(optionC || '').trim();
+    const hasD = !!String(optionD || '').trim();
+    if (hasC !== hasD) {
+      await interaction.editReply({ content: 'Use either 2 answers or 4 answers. Options C and D must both be filled or both be blank.' });
+      return;
+    }
+    await backendClient.createPendingQuestion({
+      categoryName,
+      text,
+      correct,
+      optionB,
+      optionC,
+      optionD,
+      complexity: difficulty,
+      submittedBy: `${interaction.user.username} (Discord ${interaction.user.id})`,
+      imageUrl
+    });
+    await interaction.editReply({ content: 'Question suggestion submitted for admin review.' });
+  } catch (err) {
+    await interaction.editReply({ content: `Could not submit question suggestion: ${err.message}` });
+  }
+}
+
 async function handleHelpCommand(interaction) {
   await interaction.deferReply({ ephemeral: true });
   let backendStatus = 'ok';
@@ -154,6 +188,7 @@ async function handleHelpCommand(interaction) {
         value: [
           '`/trivia` starts one random trivia question.',
           '`/trivia <category> <count>` starts filtered trivia.',
+          '`/suggest-question` submits a trivia suggestion for admin approval.',
           '`/categories` lists available categories.',
           '`/leaderboard [category] [timeframe]` shows server and global standings.',
           '`/schedule-trivia list` shows every scheduled job in this server with the correct removal ID.',
@@ -207,12 +242,13 @@ function formatChannelLabel(channel) {
   return channelName || 'that channel';
 }
 
-async function resolveScheduleChannel(interaction) {
+function resolveScheduleTarget(interaction) {
   const selectedChannel = interaction.options.getChannel('channel');
-  const targetChannelId = selectedChannel?.id || interaction.channelId;
-  if (!targetChannelId) return null;
-  const fetchedChannel = await client.channels.fetch(targetChannelId).catch(() => null);
-  return fetchedChannel || interaction.channel || selectedChannel || null;
+  const channelId = selectedChannel?.id || interaction.channelId || null;
+  return {
+    channelId,
+    channelLabel: selectedChannel ? formatChannelLabel(selectedChannel) : (channelId ? `<#${channelId}>` : 'this channel')
+  };
 }
 
 async function handleScheduleCommand(interaction) {
@@ -253,8 +289,8 @@ async function handleScheduleCommand(interaction) {
     return;
   }
 
-  const selectedChannel = await resolveScheduleChannel(interaction);
-  if (!selectedChannel?.isTextBased?.() || selectedChannel?.isDMBased?.()) {
+  const selectedChannel = resolveScheduleTarget(interaction);
+  if (!selectedChannel.channelId) {
     await interaction.reply({ content: 'Choose a text channel for scheduled trivia.', ephemeral: true });
     return;
   }
@@ -265,7 +301,7 @@ async function handleScheduleCommand(interaction) {
   if (subcommand === 'daily') {
     payload = {
       guildId: interaction.guildId,
-      channelId: selectedChannel.id,
+      channelId: selectedChannel.channelId,
       category,
       count,
       scheduleKind: 'daily',
@@ -276,7 +312,7 @@ async function handleScheduleCommand(interaction) {
     const every = interaction.options.getInteger('interval') ?? interaction.options.getInteger('every', true);
     payload = {
       guildId: interaction.guildId,
-      channelId: selectedChannel.id,
+      channelId: selectedChannel.channelId,
       category,
       count,
       scheduleKind: 'interval',
@@ -290,7 +326,7 @@ async function handleScheduleCommand(interaction) {
   try {
     const schedule = await backendClient.createSchedule(payload);
     await interaction.reply({
-      content: `Saved schedule \`${schedule.id}\` for ${selectedChannel}.\n${describeSchedule(schedule)}`,
+      content: `Saved schedule \`${schedule.id}\` for ${selectedChannel.channelLabel}.\n${describeSchedule(schedule)}`,
       ephemeral: true
     });
   } catch (err) {
@@ -371,6 +407,10 @@ client.on('interactionCreate', async (interaction) => {
   }
   if (interaction.commandName === 'categories') {
     await handleCategoriesCommand(interaction);
+    return;
+  }
+  if (interaction.commandName === 'suggest-question') {
+    await handleMakeQuestionCommand(interaction);
     return;
   }
   if (interaction.commandName === 'help') {

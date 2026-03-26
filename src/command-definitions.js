@@ -47,6 +47,33 @@ export function buildCommandDefinitions() {
       .setName('help')
       .setDescription('Show bot usage, version, and health information.'),
     new SlashCommandBuilder()
+      .setName('suggest-question')
+      .setDescription('Submit a trivia question suggestion for admin review.')
+      .addStringOption((option) =>
+        option.setName('category').setDescription('Category name for the question').setRequired(true))
+      .addStringOption((option) =>
+        option.setName('question').setDescription('The question text').setRequired(true))
+      .addStringOption((option) =>
+        option.setName('correct').setDescription('The correct answer text (stored as option A)').setRequired(true))
+      .addStringOption((option) =>
+        option.setName('b').setDescription('Option B text').setRequired(true))
+      .addStringOption((option) =>
+        option.setName('c').setDescription('Optional option C text').setRequired(false))
+      .addStringOption((option) =>
+        option.setName('d').setDescription('Optional option D text').setRequired(false))
+      .addStringOption((option) =>
+        option
+          .setName('difficulty')
+          .setDescription('Question difficulty')
+          .setRequired(false)
+          .addChoices(
+            { name: 'easy', value: 'easy' },
+            { name: 'medium', value: 'medium' },
+            { name: 'hard', value: 'hard' }
+          ))
+      .addStringOption((option) =>
+        option.setName('image_url').setDescription('Optional image URL').setRequired(false)),
+    new SlashCommandBuilder()
       .setName('schedule-trivia')
       .setDescription('Manage recurring Open-Trivia questions for this server.')
       .addSubcommand((subcommand) =>

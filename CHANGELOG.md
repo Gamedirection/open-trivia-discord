@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.1.8 - 2026-03-26
+
+- Added `/suggest-question` so Discord users can submit question suggestions for admin approval.
+- Updated recurring schedule creation to rely on the selected channel ID directly, avoiding false text-channel rejections.
+- Normalized Discord question image URLs before embedding them so local app upload paths do not break bot trivia posts.
+- Removed `A/B/C/D` prefixes from Discord answer buttons.
+
 ## v0.1.6 - 2026-03-26
 
 - Fixed `/schedule-trivia remove` so schedule deletion no longer fails channel validation.

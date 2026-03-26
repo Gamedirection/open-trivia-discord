@@ -9,10 +9,12 @@ See [CHANGELOG.md](./CHANGELOG.md) for bot release history.
 
 ## Features
 
-- Registers `/trivia`, `/categories`, `/leaderboard`, `/help`, and `/schedule-trivia` slash commands on startup.
+- Registers `/trivia`, `/categories`, `/leaderboard`, `/help`, `/schedule-trivia`, and `/suggest-question` slash commands on startup.
 - Supports private DM trivia and public channel trivia with answer buttons.
 - Supports `/help` usage guidance with site link, version, uptime, gateway ping, and backend reachability.
+- Supports `/suggest-question` so Discord users can submit admin-review question suggestions.
 - Hides blank answer slots so True/False style questions only render the real buttons.
+- Removes `A/B/C/D` prefixes from Discord answer buttons so buttons show only answer text.
 - Defaults trivia sessions to a 24 hour timeout, then deletes the expired Discord message.
 - Shows incorrect answers privately with the correct answer text.
 - Auto-creates Open-Trivia users for Discord players on first answer so Discord-only play still scores.
@@ -35,6 +37,7 @@ The bot expects the main backend to provide:
 - `POST /bot/trivia/sessions/:id/close`
 - `GET /bot/leaderboard`
 - `GET /bot/categories`
+- `POST /bot/pending-questions`
 - `GET /bot/schedules`
 - `POST /bot/schedules`
 - `DELETE /bot/schedules/:id`
@@ -115,6 +118,23 @@ Subcommands:
 - `daily <HH:MM> [channel] [category] [count]`
 - `every <minutes|hours> <every> [channel] [category] [count]`
 - `remove <id>`
+
+### `/suggest-question`
+
+Submits a question suggestion to the main Open-Trivia review queue.
+
+Options:
+
+- `category` required category name
+- `question` required question text
+- `correct` required correct answer text, stored as option `A`
+- `b` required option `B`
+- `c` optional option `C`
+- `d` optional option `D`
+- `difficulty` optional `easy|medium|hard`, defaults to `medium`
+- `image_url` optional image URL
+
+Question suggestions support either 2 answers or 4 answers. If you use `C`, you must also use `D`.
 
 ### `/help`
 
