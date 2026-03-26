@@ -200,6 +200,14 @@ function describeSchedule(schedule) {
   return `- ID \`${schedule.id}\` · <#${schedule.channel_id}> · ${categoryLabel} · ${mode} · ${schedule.question_count} question(s)${schedule.next_run ? ` · next ${new Date(schedule.next_run).toLocaleString()}` : ''}`;
 }
 
+async function resolveScheduleChannel(interaction) {
+  const selectedChannel = interaction.options.getChannel('channel');
+  const targetChannelId = selectedChannel?.id || interaction.channelId;
+  if (!targetChannelId) return null;
+  const fetchedChannel = await client.channels.fetch(targetChannelId).catch(() => null);
+  return fetchedChannel || interaction.channel || selectedChannel || null;
+}
+
 async function handleScheduleCommand(interaction) {
   if (!interaction.guildId || !interaction.channelId) {
     await interaction.reply({ content: 'Scheduling is only available inside a server channel.', ephemeral: true });
@@ -227,11 +235,6 @@ async function handleScheduleCommand(interaction) {
     }
     return;
   }
-  const selectedChannel = interaction.options.getChannel('channel') || interaction.channel;
-  if (!selectedChannel?.isTextBased?.()) {
-    await interaction.reply({ content: 'Choose a text channel for scheduled trivia.', ephemeral: true });
-    return;
-  }
   if (subcommand === 'remove') {
     const id = interaction.options.getInteger('id', true);
     try {
@@ -240,6 +243,12 @@ async function handleScheduleCommand(interaction) {
     } catch (err) {
       await interaction.reply({ content: `Could not remove schedule: ${err.message}`, ephemeral: true });
     }
+    return;
+  }
+
+  const selectedChannel = await resolveScheduleChannel(interaction);
+  if (!selectedChannel?.isTextBased?.() || selectedChannel?.isDMBased?.()) {
+    await interaction.reply({ content: 'Choose a text channel for scheduled trivia.', ephemeral: true });
     return;
   }
 
