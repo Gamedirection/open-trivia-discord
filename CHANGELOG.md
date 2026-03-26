@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.1.4 - 2026-03-26
+
+- Replaced `/ot` with `/trivia`.
+- Replaced `/otschedule` with `/schedule-trivia`.
+- Changed schedule deletion to use `/schedule-trivia remove <id>`.
+- Improved `/schedule-trivia list` so it shows all schedules in the current server with channel, category, and the correct removal ID.
+- Added Terms of Use and Privacy Policy links to `/help`.
+
 ## v0.1.3 - 2026-03-25
 
 - Changed the default trivia timeout to 24 hours.

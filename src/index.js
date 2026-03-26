@@ -152,19 +152,28 @@ async function handleHelpCommand(interaction) {
       {
         name: 'Commands',
         value: [
-          '`/ot` starts one random trivia question.',
-          '`/ot <category> <count>` starts filtered trivia.',
+          '`/trivia` starts one random trivia question.',
+          '`/trivia <category> <count>` starts filtered trivia.',
           '`/categories` lists available categories.',
           '`/leaderboard [category] [timeframe]` shows server and global standings.',
-          '`/otschedule` manages recurring trivia in the current channel.'
+          '`/schedule-trivia list` shows every scheduled job in this server with the correct removal ID.',
+          '`/schedule-trivia daily|every` creates recurring trivia jobs.',
+          '`/schedule-trivia remove <id>` deletes a scheduled job by ID.'
         ].join('\n')
       },
       {
         name: 'How It Works',
         value: [
-          'Use `/ot` in a server channel for shared button-based trivia.',
+          'Use `/trivia` in a server channel for shared button-based trivia.',
           'DM the bot or mention it to get a private one-on-one question.',
           'Discord players are created in Open-Trivia automatically on first answer so scores count right away.'
+        ].join('\n')
+      },
+      {
+        name: 'Policy Links',
+        value: [
+          `[Terms of Use](${new URL('/terms', `${config.publicAppUrl}/`).toString()})`,
+          `[Privacy Policy](${new URL('/privacy', `${config.publicAppUrl}/`).toString()})`
         ].join('\n')
       },
       {
@@ -187,7 +196,8 @@ function describeSchedule(schedule) {
     : `every ${schedule.interval_minutes >= 60 && schedule.interval_minutes % 60 === 0
       ? `${schedule.interval_minutes / 60} hour(s)`
       : `${schedule.interval_minutes} minute(s)`}`;
-  return `- \`${schedule.id}\` · <#${schedule.channel_id}> · ${mode} · ${schedule.question_count} question(s)${schedule.category_name ? ` · ${schedule.category_name}` : ''}${schedule.next_run ? ` · next ${new Date(schedule.next_run).toLocaleString()}` : ''}`;
+  const categoryLabel = schedule.category_name || 'Any category';
+  return `- ID \`${schedule.id}\` · <#${schedule.channel_id}> · ${categoryLabel} · ${mode} · ${schedule.question_count} question(s)${schedule.next_run ? ` · next ${new Date(schedule.next_run).toLocaleString()}` : ''}`;
 }
 
 async function handleScheduleCommand(interaction) {
@@ -204,7 +214,10 @@ async function handleScheduleCommand(interaction) {
         ? schedules.filter((item) => item.channel_id === selectedChannel.id)
         : schedules;
       const content = filteredSchedules.length
-        ? filteredSchedules.map((item) => describeSchedule(item)).join('\n')
+        ? [
+          'Use `/schedule-trivia remove id:<ID>` to delete one of these schedules.',
+          ...filteredSchedules.map((item) => describeSchedule(item))
+        ].join('\n')
         : selectedChannel
           ? `No schedules configured for ${selectedChannel}.`
           : 'No schedules configured for this server.';
@@ -219,14 +232,10 @@ async function handleScheduleCommand(interaction) {
     await interaction.reply({ content: 'Choose a text channel for scheduled trivia.', ephemeral: true });
     return;
   }
-  if (subcommand === 'disable') {
-    const id = Number(interaction.options.getString('id', true));
-    if (!Number.isFinite(id)) {
-      await interaction.reply({ content: 'Schedule id must be numeric. Use `/otschedule list` to find it.', ephemeral: true });
-      return;
-    }
+  if (subcommand === 'remove') {
+    const id = interaction.options.getInteger('id', true);
     try {
-      await backendClient.deleteSchedule(id);
+      await backendClient.deleteSchedule(id, interaction.guildId);
       await interaction.reply({ content: `Removed schedule \`${id}\`.`, ephemeral: true });
     } catch (err) {
       await interaction.reply({ content: `Could not remove schedule: ${err.message}`, ephemeral: true });
@@ -336,7 +345,7 @@ client.on('interactionCreate', async (interaction) => {
   }
 
   if (!interaction.isChatInputCommand()) return;
-  if (interaction.commandName === 'ot') {
+  if (interaction.commandName === 'trivia') {
     await handleOtCommand(interaction);
     return;
   }
@@ -352,7 +361,7 @@ client.on('interactionCreate', async (interaction) => {
     await handleHelpCommand(interaction);
     return;
   }
-  if (interaction.commandName === 'otschedule') {
+  if (interaction.commandName === 'schedule-trivia') {
     await handleScheduleCommand(interaction);
   }
 });

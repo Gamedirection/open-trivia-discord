@@ -9,7 +9,7 @@ See [CHANGELOG.md](./CHANGELOG.md) for bot release history.
 
 ## Features
 
-- Registers `/ot`, `/categories`, `/leaderboard`, `/help`, and `/otschedule` slash commands on startup.
+- Registers `/trivia`, `/categories`, `/leaderboard`, `/help`, and `/schedule-trivia` slash commands on startup.
 - Supports private DM trivia and public channel trivia with answer buttons.
 - Supports `/help` usage guidance with site link, version, uptime, gateway ping, and backend reachability.
 - Hides blank answer slots so True/False style questions only render the real buttons.
@@ -74,7 +74,7 @@ The bot stores active in-flight trivia sessions in `BOT_STORAGE_PATH`. Recurring
 
 ## Commands
 
-### `/ot`
+### `/trivia`
 
 Starts one or more trivia questions.
 
@@ -85,7 +85,7 @@ Options:
 
 Behavior:
 
-- With no arguments, `/ot` starts one random trivia question.
+- With no arguments, `/trivia` starts one random trivia question.
 - In DMs, only the requesting user can answer.
 - In guild channels, anyone in the channel can answer once.
 - Incorrect answers get a private reply with the correct answer.
@@ -105,7 +105,7 @@ Options:
 - `category` optional category name
 - `timeframe` optional one of `today`, `this month`, `this year`, `all time`
 
-### `/otschedule`
+### `/schedule-trivia`
 
 Manage recurring trivia in the current guild channel.
 
@@ -114,7 +114,7 @@ Subcommands:
 - `list [channel]`
 - `daily <HH:MM> [channel] [category] [count]`
 - `every <minutes|hours> <every> [channel] [category] [count]`
-- `disable <id>`
+- `remove <id>`
 
 ### `/help`
 

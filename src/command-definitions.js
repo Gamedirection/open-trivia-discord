@@ -10,7 +10,7 @@ export const leaderboardTimeframes = [
 export function buildCommandDefinitions() {
   return [
     new SlashCommandBuilder()
-      .setName('ot')
+      .setName('trivia')
       .setDescription('Spawn Open-Trivia questions in this channel or DM.')
       .addStringOption((option) =>
         option
@@ -47,7 +47,7 @@ export function buildCommandDefinitions() {
       .setName('help')
       .setDescription('Show bot usage, version, and health information.'),
     new SlashCommandBuilder()
-      .setName('otschedule')
+      .setName('schedule-trivia')
       .setDescription('Manage recurring Open-Trivia questions for this server.')
       .addSubcommand((subcommand) =>
         subcommand
@@ -99,9 +99,9 @@ export function buildCommandDefinitions() {
             option.setName('count').setDescription('Number of questions each run').setMinValue(1).setMaxValue(20).setRequired(false)))
       .addSubcommand((subcommand) =>
         subcommand
-          .setName('disable')
-          .setDescription('Disable and remove a schedule by ID')
-          .addStringOption((option) =>
-            option.setName('id').setDescription('Schedule ID from /otschedule list').setRequired(true)))
+          .setName('remove')
+          .setDescription('Remove a schedule by ID')
+          .addIntegerOption((option) =>
+            option.setName('id').setDescription('Schedule ID from /schedule-trivia list').setRequired(true)))
   ].map((command) => command.toJSON());
 }

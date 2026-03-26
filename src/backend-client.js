@@ -105,9 +105,12 @@ export class BackendClient {
     });
   }
 
-  async deleteSchedule(id) {
+  async deleteSchedule(id, guildId) {
     return this.request(`/bot/schedules/${id}`, {
-      method: 'DELETE'
+      method: 'DELETE',
+      params: {
+        guildId
+      }
     });
   }
 
