@@ -1,3 +1,6 @@
+<img width="1325" height="380" alt="image" src="https://github.com/Gamedirection/Open-Trivia/blob/main/img/open-trivia-logo_OT-Logo%2BMark.svg" />
+
+
 # open-trivia-discord
 
 Discord bot service for Open-Trivia. This service is designed to live as its own deployment and call the main Open-Trivia backend over HTTP using a bot API token.
