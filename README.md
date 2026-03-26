@@ -7,6 +7,9 @@ Discord bot service for Open-Trivia. This service is designed to live as its own
 
 See [CHANGELOG.md](./CHANGELOG.md) for bot release history.
 
+## Try it out on [Discord](join.gamedirection.net)
+## [Add the GameDirection hosted bot to your server](https://discord.com/oauth2/authorize?client_id=1485851351366766755)
+
 ## Features
 
 - Registers `/trivia`, `/categories`, `/leaderboard`, `/help`, `/schedule-trivia`, and `/suggest-question` slash commands on startup.
