@@ -4,6 +4,8 @@ services:
     image: ghcr.io/gamedirection/open-trivia-discord:latest
     env_file:
       - .env
+    environment:
+      BOT_IMAGE_TAG: ${BOT_IMAGE_TAG:-latest}
     restart: unless-stopped
     extra_hosts:
       - "host.docker.internal:host-gateway"

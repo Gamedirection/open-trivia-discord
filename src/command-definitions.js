@@ -129,8 +129,8 @@ export function buildCommandDefinitions() {
       .addSubcommand((subcommand) =>
         subcommand
           .setName('remove')
-          .setDescription('Remove a schedule by ID')
-          .addIntegerOption((option) =>
-            option.setName('id').setDescription('Schedule ID from /schedule-trivia list').setRequired(true)))
+          .setDescription('Remove a schedule by ID, or use ALL to clear every schedule in this server')
+          .addStringOption((option) =>
+            option.setName('id').setDescription('Schedule ID from /schedule-trivia list, or ALL').setRequired(true)))
   ].map((command) => command.toJSON());
 }

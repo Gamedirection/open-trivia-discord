@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.1.12 - 2026-03-28
+
+- Added `id:ALL` support to `/schedule-trivia remove` so an entire server's recurring trivia jobs can be cleared in one command.
+- Updated `/schedule-trivia list` to show each schedule's latest success/failure status alongside the next scheduled run time.
+- Hardened recurring schedule execution so invalid, inaccessible, or private-channel schedules are automatically disabled instead of spamming repeated failures.
+- Made `/help` version reporting dynamic so it reflects the deployed bot image tag instead of the static package version.
+
 ## v0.1.8 - 2026-03-26
 
 - Added `/suggest-question` so Discord users can submit question suggestions for admin approval.

@@ -16,12 +16,20 @@ function numberFromEnv(name, fallback) {
 }
 
 export function loadConfig() {
+  const packageVersion = String(process.env.npm_package_version || '0.1.0').trim();
+  const deployedVersion = String(
+    process.env.BOT_IMAGE_TAG
+      || process.env.APP_IMAGE_TAG
+      || process.env.IMAGE_TAG
+      || packageVersion
+  ).trim();
   return {
     discordToken: required('DISCORD_TOKEN'),
     discordClientId: required('DISCORD_CLIENT_ID'),
     apiBaseUrl: String(process.env.BOT_API_BASE_URL || 'http://backend:5000').trim().replace(/\/+$/, ''),
     apiToken: required('BOT_API_TOKEN'),
     publicAppUrl: String(process.env.BOT_PUBLIC_APP_URL || 'http://localhost:3000').trim().replace(/\/+$/, ''),
+    botVersion: deployedVersion || packageVersion,
     storagePath: path.resolve(process.env.BOT_STORAGE_PATH || '/tmp/open-trivia-discord-state.json'),
     schedulePollMs: Math.max(5000, numberFromEnv('BOT_SCHEDULE_POLL_MS', 15000)),
     questionTimeoutSeconds: Math.max(15, numberFromEnv('BOT_QUESTION_TIMEOUT_SECONDS', 86400))

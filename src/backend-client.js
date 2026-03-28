@@ -141,9 +141,13 @@ export class BackendClient {
     });
   }
 
-  async markScheduleRun(id) {
+  async markScheduleRun(id, { status = 'success', error = null } = {}) {
     return this.request(`/bot/schedules/${id}/mark-run`, {
-      method: 'POST'
+      method: 'POST',
+      body: {
+        status,
+        error
+      }
     });
   }
 

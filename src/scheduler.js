@@ -59,7 +59,7 @@ export class Scheduler {
           category: schedule.category_name || null,
           count: Number(schedule.question_count || 1)
         });
-        await this.backendClient.markScheduleRun(schedule.id);
+        await this.backendClient.markScheduleRun(schedule.id, { status: 'success' });
       } catch (err) {
         await this.handleScheduleError(schedule, err);
       }
@@ -92,6 +92,7 @@ export class Scheduler {
 
   async disableSchedule(schedule, reason) {
     try {
+      await this.backendClient.markScheduleRun(schedule.id, { status: 'failed', error: reason });
       await this.backendClient.updateSchedule(schedule.id, { enabled: false });
       console.warn(`Disabled schedule ${schedule.id}: ${reason}.`);
     } catch (err) {
@@ -107,6 +108,7 @@ export class Scheduler {
       await this.disableSchedule(schedule, 'Discord denied access to the channel');
       return;
     }
+    await this.backendClient.markScheduleRun(schedule.id, { status: 'failed', error: message.slice(0, 500) }).catch(() => {});
     throw err;
   }
 }

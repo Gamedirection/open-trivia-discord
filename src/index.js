@@ -19,7 +19,7 @@ const config = loadConfig();
 const store = new RuntimeStore(config.storagePath);
 store.load();
 const startedAt = Date.now();
-const botVersion = process.env.npm_package_version || '0.1.0';
+const botVersion = config.botVersion;
 
 const backendClient = new BackendClient({
   baseUrl: config.apiBaseUrl,
@@ -232,7 +232,13 @@ function describeSchedule(schedule) {
       ? `${schedule.interval_minutes / 60} hour(s)`
       : `${schedule.interval_minutes} minute(s)`}`;
   const categoryLabel = schedule.category_name || 'Any category';
-  return `- ID \`${schedule.id}\` · <#${schedule.channel_id}> · ${categoryLabel} · ${mode} · ${schedule.question_count} question(s)${schedule.next_run ? ` · next ${new Date(schedule.next_run).toLocaleString()}` : ''}`;
+  const lastStatus = String(schedule.last_status || '').trim().toLowerCase();
+  const statusLabel = lastStatus === 'failed'
+    ? 'last failed'
+    : lastStatus === 'success'
+      ? 'last succeeded'
+      : 'not run yet';
+  return `- ID \`${schedule.id}\` · <#${schedule.channel_id}> · ${categoryLabel} · ${mode} · ${schedule.question_count} question(s)${schedule.next_run ? ` · next ${new Date(schedule.next_run).toLocaleString()}` : ''} · ${statusLabel}`;
 }
 
 function formatChannelLabel(channel) {
@@ -289,7 +295,7 @@ async function handleScheduleCommand(interaction) {
         : schedules;
       const content = filteredSchedules.length
         ? [
-          'Use `/schedule-trivia remove id:<ID>` to delete one of these schedules.',
+          'Use `/schedule-trivia remove id:<ID>` to delete one schedule, or `id:ALL` to clear every schedule in this server.',
           ...filteredSchedules.map((item) => describeSchedule(item))
         ].join('\n')
         : selectedChannel
@@ -302,8 +308,23 @@ async function handleScheduleCommand(interaction) {
     return;
   }
   if (subcommand === 'remove') {
-    const id = interaction.options.getInteger('id', true);
+    const rawId = String(interaction.options.getString('id', true) || '').trim();
     try {
+      if (rawId.toUpperCase() === 'ALL') {
+        const schedules = await backendClient.fetchSchedules({ guildId: interaction.guildId });
+        if (!schedules.length) {
+          await interaction.editReply({ content: 'No schedules are configured for this server.' });
+          return;
+        }
+        await Promise.all(schedules.map((schedule) => backendClient.deleteSchedule(schedule.id, interaction.guildId)));
+        await interaction.editReply({ content: `Removed all ${schedules.length} scheduled trivia job${schedules.length === 1 ? '' : 's'} for this server.` });
+        return;
+      }
+      const id = Number.parseInt(rawId, 10);
+      if (!Number.isFinite(id)) {
+        await interaction.editReply({ content: 'Use a numeric schedule ID from `/schedule-trivia list`, or `ALL`.' });
+        return;
+      }
       await backendClient.deleteSchedule(id, interaction.guildId);
       await interaction.editReply({ content: `Removed schedule \`${id}\`.` });
     } catch (err) {
