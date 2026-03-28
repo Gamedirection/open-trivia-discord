@@ -256,6 +256,7 @@ async function handleScheduleCommand(interaction) {
     await interaction.reply({ content: 'Scheduling is only available inside a server channel.', ephemeral: true });
     return;
   }
+  await interaction.deferReply({ ephemeral: true });
   const subcommand = interaction.options.getSubcommand();
   if (subcommand === 'list') {
     try {
@@ -272,9 +273,9 @@ async function handleScheduleCommand(interaction) {
         : selectedChannel
           ? `No schedules configured for ${formatChannelLabel(selectedChannel)}.`
           : 'No schedules configured for this server.';
-      await interaction.reply({ content, ephemeral: true });
+      await interaction.editReply({ content });
     } catch (err) {
-      await interaction.reply({ content: `Could not load schedules: ${err.message}`, ephemeral: true });
+      await interaction.editReply({ content: `Could not load schedules: ${err.message}` });
     }
     return;
   }
@@ -282,16 +283,16 @@ async function handleScheduleCommand(interaction) {
     const id = interaction.options.getInteger('id', true);
     try {
       await backendClient.deleteSchedule(id, interaction.guildId);
-      await interaction.reply({ content: `Removed schedule \`${id}\`.`, ephemeral: true });
+      await interaction.editReply({ content: `Removed schedule \`${id}\`.` });
     } catch (err) {
-      await interaction.reply({ content: `Could not remove schedule: ${err.message}`, ephemeral: true });
+      await interaction.editReply({ content: `Could not remove schedule: ${err.message}` });
     }
     return;
   }
 
   const selectedChannel = resolveScheduleTarget(interaction);
   if (!selectedChannel.channelId) {
-    await interaction.reply({ content: 'Choose a text channel for scheduled trivia.', ephemeral: true });
+    await interaction.editReply({ content: 'Choose a text channel for scheduled trivia.' });
     return;
   }
 
@@ -320,19 +321,17 @@ async function handleScheduleCommand(interaction) {
     };
   }
   if (!payload) {
-    await interaction.reply({ content: 'Unsupported schedule request.', ephemeral: true });
+    await interaction.editReply({ content: 'Unsupported schedule request.' });
     return;
   }
   try {
     const schedule = await backendClient.createSchedule(payload);
-    await interaction.reply({
-      content: `Saved schedule \`${schedule.id}\` for ${selectedChannel.channelLabel}.\n${describeSchedule(schedule)}`,
-      ephemeral: true
+    await interaction.editReply({
+      content: `Saved schedule \`${schedule.id}\` for ${selectedChannel.channelLabel}.\n${describeSchedule(schedule)}`
     });
   } catch (err) {
-    await interaction.reply({
-      content: `Could not save schedule: ${err.message}`,
-      ephemeral: true
+    await interaction.editReply({
+      content: `Could not save schedule: ${err.message}`
     });
   }
 }

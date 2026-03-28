@@ -59,6 +59,13 @@ function sessionSummaryEmbed(session, statusText) {
   return embed;
 }
 
+function cloneSessionWithoutImage(session) {
+  return {
+    ...session,
+    imageUrl: null
+  };
+}
+
 export class SessionManager {
   constructor({ store, backendClient, questionTimeoutSeconds }) {
     this.store = store;
@@ -138,10 +145,21 @@ export class SessionManager {
         messageId: null,
         closesAt: item.closes_at || new Date(Date.now() + this.questionTimeoutSeconds * 1000).toISOString()
       };
-      const sent = await channel.send({
-        embeds: [sessionSummaryEmbed(session, '0 users have guessed.')],
-        components: buildAnswerRows(session)
-      });
+      let sent;
+      try {
+        sent = await channel.send({
+          embeds: [sessionSummaryEmbed(session, '0 users have guessed.')],
+          components: buildAnswerRows(session)
+        });
+      } catch (err) {
+        if (!session.imageUrl) throw err;
+        const withoutImage = cloneSessionWithoutImage(session);
+        sent = await channel.send({
+          embeds: [sessionSummaryEmbed(withoutImage, '0 users have guessed.')],
+          components: buildAnswerRows(withoutImage)
+        });
+        session.imageUrl = null;
+      }
       session.messageId = sent.id;
       this.store.saveSession(session);
       this.armTimeout(client, session);
