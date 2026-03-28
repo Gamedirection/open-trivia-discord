@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.1.13 - 2026-03-28
+
+- Paginated `/schedule-trivia list` so large server schedule lists stay under Discord's 2000-character response limit.
+- Added left/right buttons for navigating schedule list pages while keeping server-wide and channel-filtered views intact.
+- Replaced deprecated Discord.js `ephemeral` reply usage with flags-based replies.
+- Switched startup readiness handling to `ClientReady` to remove the Discord.js ready-event deprecation warning.
+
 ## v0.1.12 - 2026-03-28
 
 - Added `id:ALL` support to `/schedule-trivia remove` so an entire server's recurring trivia jobs can be cleared in one command.

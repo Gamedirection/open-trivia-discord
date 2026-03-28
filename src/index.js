@@ -1,9 +1,13 @@
 import {
+  ActionRowBuilder,
   ActivityType,
+  ButtonBuilder,
+  ButtonStyle,
   Client,
   EmbedBuilder,
   Events,
   GatewayIntentBits,
+  MessageFlags,
   Partials,
   REST,
   Routes
@@ -97,7 +101,7 @@ async function handleOtCommand(interaction) {
   const category = interaction.options.getString('category');
   const count = interaction.options.getInteger('count') || 1;
   const mode = interaction.guildId ? 'public' : 'private';
-  await interaction.deferReply({ ephemeral: mode === 'private' });
+  await interaction.deferReply(mode === 'private' ? { flags: MessageFlags.Ephemeral } : undefined);
   try {
     const channel = {
       id: interaction.channelId,
@@ -123,7 +127,7 @@ async function handleOtCommand(interaction) {
 }
 
 async function handleCategoriesCommand(interaction) {
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   try {
     const categories = await backendClient.fetchCategories();
     if (!Array.isArray(categories) || !categories.length) {
@@ -138,7 +142,7 @@ async function handleCategoriesCommand(interaction) {
 }
 
 async function handleMakeQuestionCommand(interaction) {
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   try {
     const categoryName = interaction.options.getString('category', true);
     const text = interaction.options.getString('question', true);
@@ -172,7 +176,7 @@ async function handleMakeQuestionCommand(interaction) {
 }
 
 async function handleHelpCommand(interaction) {
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   let backendStatus = 'ok';
   try {
     await backendClient.fetchCategories();
@@ -241,6 +245,82 @@ function describeSchedule(schedule) {
   return `- ID \`${schedule.id}\` · <#${schedule.channel_id}> · ${categoryLabel} · ${mode} · ${schedule.question_count} question(s)${schedule.next_run ? ` · next ${new Date(schedule.next_run).toLocaleString()}` : ''} · ${statusLabel}`;
 }
 
+function buildSchedulePages({ schedules, selectedChannelId }) {
+  const intro = 'Use `/schedule-trivia remove id:<ID>` to delete one schedule, or `id:ALL` to clear every schedule in this server.';
+  const noResults = selectedChannelId
+    ? `No schedules configured for <#${selectedChannelId}>.`
+    : 'No schedules configured for this server.';
+  if (!schedules.length) return [{ content: noResults, page: 1, totalPages: 1 }];
+
+  const lines = schedules.map((item) => describeSchedule(item));
+  const pages = [];
+  let currentLines = [];
+  for (const line of lines) {
+    const nextLines = [...currentLines, line];
+    const candidate = [intro, ...nextLines].join('\n');
+    if (candidate.length > 1800 && currentLines.length) {
+      pages.push(currentLines);
+      currentLines = [line];
+    } else {
+      currentLines = nextLines;
+    }
+  }
+  if (currentLines.length) pages.push(currentLines);
+
+  return pages.map((pageLines, index) => ({
+    page: index + 1,
+    totalPages: pages.length,
+    content: [
+      intro,
+      `Page ${index + 1}/${pages.length}`,
+      ...pageLines
+    ].join('\n')
+  }));
+}
+
+function buildSchedulePaginationRow({ guildId, selectedChannelId, page, totalPages }) {
+  if (totalPages <= 1) return [];
+  const filter = selectedChannelId || 'all';
+  return [
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`schedule-page:${guildId}:${filter}:${page - 1}`)
+        .setLabel('◀')
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(page <= 1),
+      new ButtonBuilder()
+        .setCustomId(`schedule-page:${guildId}:${filter}:${page + 1}`)
+        .setLabel('▶')
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(page >= totalPages)
+    )
+  ];
+}
+
+async function renderScheduleList({ interaction, guildId, selectedChannelId = null, page = 1, useUpdate = false }) {
+  const schedules = await backendClient.fetchSchedules({ guildId });
+  const filteredSchedules = selectedChannelId
+    ? schedules.filter((item) => item.channel_id === selectedChannelId)
+    : schedules;
+  const pages = buildSchedulePages({ schedules: filteredSchedules, selectedChannelId });
+  const safePage = Math.min(Math.max(1, page), pages.length);
+  const current = pages[safePage - 1];
+  const payload = {
+    content: current.content,
+    components: buildSchedulePaginationRow({
+      guildId,
+      selectedChannelId,
+      page: current.page,
+      totalPages: current.totalPages
+    })
+  };
+  if (useUpdate) {
+    await interaction.update(payload);
+  } else {
+    await interaction.editReply(payload);
+  }
+}
+
 function formatChannelLabel(channel) {
   const channelId = channel?.id;
   if (channelId) return `<#${channelId}>`;
@@ -281,27 +361,19 @@ function resolveScheduleTarget(interaction) {
 
 async function handleScheduleCommand(interaction) {
   if (!interaction.guildId || !interaction.channelId) {
-    await interaction.reply({ content: 'Scheduling is only available inside a server channel.', ephemeral: true });
+    await interaction.reply({ content: 'Scheduling is only available inside a server channel.', flags: MessageFlags.Ephemeral });
     return;
   }
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   const subcommand = interaction.options.getSubcommand();
   if (subcommand === 'list') {
     try {
       const selectedChannel = interaction.options.getChannel('channel');
-      const schedules = await backendClient.fetchSchedules({ guildId: interaction.guildId });
-      const filteredSchedules = selectedChannel
-        ? schedules.filter((item) => item.channel_id === selectedChannel.id)
-        : schedules;
-      const content = filteredSchedules.length
-        ? [
-          'Use `/schedule-trivia remove id:<ID>` to delete one schedule, or `id:ALL` to clear every schedule in this server.',
-          ...filteredSchedules.map((item) => describeSchedule(item))
-        ].join('\n')
-        : selectedChannel
-          ? `No schedules configured for ${formatChannelLabel(selectedChannel)}.`
-          : 'No schedules configured for this server.';
-      await interaction.editReply({ content });
+      await renderScheduleList({
+        interaction,
+        guildId: interaction.guildId,
+        selectedChannelId: selectedChannel?.id || null
+      });
     } catch (err) {
       await interaction.editReply({ content: `Could not load schedules: ${err.message}` });
     }
@@ -425,7 +497,7 @@ async function handlePromptedMessage(message) {
   }
 }
 
-client.once('ready', async (readyClient) => {
+client.once(Events.ClientReady, async (readyClient) => {
   console.log(`Discord bot ready as ${readyClient.user.tag}`);
   readyClient.user.setActivity('Open-Trivia', { type: ActivityType.Playing });
   sessionManager.restore(readyClient);
@@ -434,6 +506,21 @@ client.once('ready', async (readyClient) => {
 
 client.on('interactionCreate', async (interaction) => {
   if (interaction.isButton()) {
+    const [prefix, guildId, filter, rawPage] = String(interaction.customId || '').split(':');
+    if (prefix === 'schedule-page') {
+      try {
+        await renderScheduleList({
+          interaction,
+          guildId,
+          selectedChannelId: filter && filter !== 'all' ? filter : null,
+          page: Number.parseInt(rawPage, 10) || 1,
+          useUpdate: true
+        });
+      } catch (err) {
+        await interaction.update({ content: `Could not load schedules: ${err.message}`, components: [] });
+      }
+      return;
+    }
     const handled = await sessionManager.handleButtonInteraction(client, interaction);
     if (handled) return;
   }

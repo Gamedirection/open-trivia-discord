@@ -2,7 +2,8 @@ import {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
-  EmbedBuilder
+  EmbedBuilder,
+  MessageFlags
 } from 'discord.js';
 
 function buildAnswerRows(session) {
@@ -192,15 +193,15 @@ export class SessionManager {
     if (prefix !== 'ot-answer') return false;
     const session = this.store.getSessions().find((item) => item.id === sessionId);
     if (!session || session.status !== 'open') {
-      await interaction.reply({ content: 'This trivia question is no longer active.', ephemeral: true });
+      await interaction.reply({ content: 'This trivia question is no longer active.', flags: MessageFlags.Ephemeral });
       return true;
     }
     if (session.mode === 'private' && interaction.user.id !== session.ownerDiscordUserId) {
-      await interaction.reply({ content: 'This question is private to the requesting user.', ephemeral: true });
+      await interaction.reply({ content: 'This question is private to the requesting user.', flags: MessageFlags.Ephemeral });
       return true;
     }
     if (session.guesses[interaction.user.id]) {
-      await interaction.reply({ content: 'You already answered this question.', ephemeral: true });
+      await interaction.reply({ content: 'You already answered this question.', flags: MessageFlags.Ephemeral });
       return true;
     }
 
@@ -239,7 +240,7 @@ export class SessionManager {
       if (!result.linked) {
         await interaction.followUp({
           content: `Link your Open-Trivia account first: ${result.link_url || this.backendClient.buildLinkAccountUrl()}`,
-          ephemeral: true
+          flags: MessageFlags.Ephemeral
         });
       } else {
         const difficultyLabel = formatDifficultyLabel(result.difficulty);
@@ -247,7 +248,7 @@ export class SessionManager {
           content: result.is_correct
             ? `Correct. This ${difficultyLabel} question was +${result.points_awarded || 0} points.${session.source === 'OpenTriviaDB' ? ' (OpenTriviaDB fallback)' : ''}`
             : `Incorrect. Correct answer: ${result.correct_answer_label || result.correct_answer || 'Unknown'}.`,
-          ephemeral: true
+          flags: MessageFlags.Ephemeral
         });
       }
 
@@ -256,9 +257,9 @@ export class SessionManager {
       }
     } catch (err) {
       if (interaction.deferred || interaction.replied) {
-        await interaction.followUp({ content: `Could not submit your answer: ${err.message}`, ephemeral: true });
+        await interaction.followUp({ content: `Could not submit your answer: ${err.message}`, flags: MessageFlags.Ephemeral });
       } else {
-        await interaction.reply({ content: `Could not submit your answer: ${err.message}`, ephemeral: true });
+        await interaction.reply({ content: `Could not submit your answer: ${err.message}`, flags: MessageFlags.Ephemeral });
       }
     }
     return true;
