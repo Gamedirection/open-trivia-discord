@@ -47,8 +47,8 @@ export class Scheduler {
   async tick() {
     const schedules = await this.backendClient.fetchSchedules({ dueOnly: true });
     for (const schedule of schedules) {
-      const channel = await this.client.channels.fetch(schedule.channel_id).catch(() => null);
-      if (!channel?.isTextBased?.()) continue;
+      const channel = await this.resolveScheduleChannel(schedule);
+      if (!channel) continue;
       await this.sessionManager.createSession({
         client: this.client,
         channel,
@@ -60,6 +60,19 @@ export class Scheduler {
       });
       await this.backendClient.markScheduleRun(schedule.id);
     }
+  }
+
+  async resolveScheduleChannel(schedule) {
+    let channel = await this.client.channels.fetch(schedule.channel_id).catch(() => null);
+    if (!channel && schedule.guild_id) {
+      const guild = await this.client.guilds.fetch(schedule.guild_id).catch(() => null);
+      channel = await guild?.channels?.fetch?.(schedule.channel_id).catch(() => null);
+    }
+    if (!channel?.isTextBased?.()) {
+      console.warn(`Skipping schedule ${schedule.id}: target channel ${schedule.channel_id} is unavailable or not text-based.`);
+      return null;
+    }
+    return channel;
   }
 }
 

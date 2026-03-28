@@ -242,9 +242,31 @@ function formatChannelLabel(channel) {
   return channelName || 'that channel';
 }
 
+function extractRawChannelId(interaction) {
+  const directOption = interaction.options.get('channel');
+  if (directOption?.channel?.id) return directOption.channel.id;
+  if (directOption?.value) return String(directOption.value);
+
+  const walkOptions = (options) => {
+    if (!Array.isArray(options)) return null;
+    for (const option of options) {
+      if (option?.name === 'channel') {
+        if (option.channel?.id) return option.channel.id;
+        if (option.value) return String(option.value);
+      }
+      const nested = walkOptions(option?.options);
+      if (nested) return nested;
+    }
+    return null;
+  };
+
+  return walkOptions(interaction.options?.data) || null;
+}
+
 function resolveScheduleTarget(interaction) {
-  const selectedChannel = interaction.options.getChannel('channel');
-  const channelId = selectedChannel?.id || interaction.channelId || null;
+  const selectedChannel = interaction.options.getChannel('channel') || interaction.options.get('channel')?.channel || null;
+  const rawChannelId = extractRawChannelId(interaction);
+  const channelId = selectedChannel?.id || rawChannelId || interaction.channelId || interaction.channel?.id || null;
   return {
     channelId,
     channelLabel: selectedChannel ? formatChannelLabel(selectedChannel) : (channelId ? `<#${channelId}>` : 'this channel')
