@@ -47,12 +47,19 @@ export class BackendClient {
     });
   }
 
-  async submitAnswer({ sessionId, discordUserId, discordUsername, answer }) {
+  async fetchOpenTdbQuestions({ count = 1 }) {
+    return this.request('/game/opentdb/next-batch', {
+      params: { amount: count }
+    });
+  }
+
+  async submitAnswer({ sessionId, discordUserId, discordUsername, discordAvatarUrl, answer }) {
     return this.request(`/bot/trivia/sessions/${sessionId}/answer`, {
       method: 'POST',
       body: {
         discordUserId,
         discordUsername,
+        discordAvatarUrl,
         selectedAnswer: answer
       }
     });

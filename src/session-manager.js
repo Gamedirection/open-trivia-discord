@@ -26,9 +26,11 @@ function normalizeQuestionImageUrl(imageUrl, publicAppUrl) {
   if (!value) return null;
   try {
     if (/^https?:\/\//i.test(value)) {
-      return new URL(value).toString();
+      const parsed = new URL(value).toString();
+      return /\.(png|jpe?g|gif|webp)(\?.*)?$/i.test(parsed) ? parsed : null;
     }
-    return new URL(value, `${String(publicAppUrl || '').replace(/\/+$/, '')}/`).toString();
+    const parsed = new URL(value, `${String(publicAppUrl || '').replace(/\/+$/, '')}/`).toString();
+    return /\.(png|jpe?g|gif|webp)(\?.*)?$/i.test(parsed) ? parsed : null;
   } catch {
     return null;
   }
@@ -82,27 +84,46 @@ export class SessionManager {
     category,
     count = 1
   }) {
-    const payload = await this.backendClient.fetchQuestions({
-      category,
-      count,
-      guildId,
-      channelId: channel.id,
-      mode: mode === 'private' ? 'direct' : mode,
-      closeAfterSeconds: this.questionTimeoutSeconds
-    });
-    const items = Array.isArray(payload.sessions) ? payload.sessions : [];
+    let items = [];
+    try {
+      const payload = await this.backendClient.fetchQuestions({
+        category,
+        count,
+        guildId,
+        channelId: channel.id,
+        mode: mode === 'private' ? 'direct' : mode,
+        closeAfterSeconds: this.questionTimeoutSeconds
+      });
+      items = Array.isArray(payload.sessions) ? payload.sessions : [];
+    } catch (err) {
+      if (!String(err?.message || '').includes('No questions available')) throw err;
+    }
+    if (!items.length) {
+      const fallback = await this.backendClient.fetchOpenTdbQuestions({ count });
+      const fallbackQuestions = Array.isArray(fallback?.questions) ? fallback.questions : [];
+      items = fallbackQuestions.map((question) => ({
+        session_id: `opentdb-${question.id}`,
+        closes_at: new Date(Date.now() + this.questionTimeoutSeconds * 1000).toISOString(),
+        question: {
+          ...question,
+          source: 'OpenTriviaDB'
+        }
+      }));
+    }
     const sessions = [];
     for (const item of items) {
       const question = item.question || {};
       const session = {
         id: String(item.session_id),
         backendQuestionId: question.id,
+        source: question.source || 'local',
         createdAt: new Date().toISOString(),
         guildId: guildId || null,
         channelId: channel.id,
         mode,
         ownerDiscordUserId: ownerDiscordUserId || null,
         category: question.category || category || 'General',
+        complexity: question.complexity || 'medium',
         text: question.text,
         imageUrl: normalizeQuestionImageUrl(question.image_url, this.backendClient.publicAppUrl),
         options: Array.isArray(question.options)
@@ -111,7 +132,7 @@ export class SessionManager {
             label: option.text || option.label || ''
           })).filter((option) => option.key && String(option.label || '').trim())
           : [],
-        correctAnswer: null,
+        correctAnswer: String(question.correctAnswer || '').trim().toUpperCase() || null,
         guesses: {},
         status: 'open',
         messageId: null,
@@ -166,12 +187,23 @@ export class SessionManager {
     }
 
     try {
-      const result = await this.backendClient.submitAnswer({
-        sessionId: session.id,
-        discordUserId: interaction.user.id,
-        discordUsername: interaction.user.username,
-        answer: answerKey
-      });
+      const result = session.source === 'OpenTriviaDB'
+        ? {
+            linked: true,
+            is_correct: answerKey === session.correctAnswer,
+            points_awarded: 0,
+            answered_count: Object.keys(session.guesses).length + 1,
+            difficulty: session.complexity || 'medium',
+            correct_answer: session.correctAnswer,
+            correct_answer_label: session.options.find((option) => option.key === session.correctAnswer)?.label || session.correctAnswer,
+          }
+        : await this.backendClient.submitAnswer({
+            sessionId: session.id,
+            discordUserId: interaction.user.id,
+            discordUsername: interaction.user.username,
+            discordAvatarUrl: interaction.user.displayAvatarURL({ extension: 'png', size: 256 }),
+            answer: answerKey
+          });
 
       session.guesses[interaction.user.id] = {
         answer: answerKey,
@@ -195,7 +227,7 @@ export class SessionManager {
         const difficultyLabel = formatDifficultyLabel(result.difficulty);
         await interaction.followUp({
           content: result.is_correct
-            ? `Correct. This ${difficultyLabel} question was +${result.points_awarded || 0} points.`
+            ? `Correct. This ${difficultyLabel} question was +${result.points_awarded || 0} points.${session.source === 'OpenTriviaDB' ? ' (OpenTriviaDB fallback)' : ''}`
             : `Incorrect. Correct answer: ${result.correct_answer_label || result.correct_answer || 'Unknown'}.`,
           ephemeral: true
         });
@@ -231,7 +263,9 @@ export class SessionManager {
       this.store.removeSession(sessionId);
       return;
     }
-    const result = await this.backendClient.closeSession(session.id).catch(() => null);
+    const result = session.source === 'OpenTriviaDB'
+      ? null
+      : await this.backendClient.closeSession(session.id).catch(() => null);
     const guessCount = result?.total_answers ?? Object.keys(session.guesses).length;
     const correctAnswer = String(result?.correct_answer || session.correctAnswer || '').toUpperCase();
     const summary = timedOut
