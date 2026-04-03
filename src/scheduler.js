@@ -1,3 +1,9 @@
+function randomInt(min, max) {
+  const safeMin = Math.min(min, max);
+  const safeMax = Math.max(min, max);
+  return Math.floor(Math.random() * (safeMax - safeMin + 1)) + safeMin;
+}
+
 function computeNextRun(schedule, from = new Date()) {
   const now = new Date(from);
   const scheduleKind = schedule.schedule_kind || schedule.scheduleKind || schedule.mode;
@@ -8,6 +14,14 @@ function computeNextRun(schedule, from = new Date()) {
     next.setHours(hour, minute, 0, 0);
     if (next <= now) next.setDate(next.getDate() + 1);
     return next.toISOString();
+  }
+  if (scheduleKind === 'random_interval') {
+    const minMinutes = Math.max(1, Number(schedule.interval_min_minutes || schedule.intervalMinMinutes || 1));
+    const maxMinutes = Math.max(minMinutes, Number(schedule.interval_max_minutes || schedule.intervalMaxMinutes || minMinutes));
+    return new Date(now.getTime() + randomInt(minMinutes, maxMinutes) * 60 * 1000).toISOString();
+  }
+  if (scheduleKind === 'comment_range') {
+    return null;
   }
   const intervalMinutes = Math.max(1, Number(
     schedule.interval_minutes
@@ -47,22 +61,26 @@ export class Scheduler {
   async tick() {
     const schedules = await this.backendClient.fetchSchedules({ dueOnly: true });
     for (const schedule of schedules) {
-      try {
-        const channel = await this.resolveScheduleChannel(schedule);
-        if (!channel) continue;
-        await this.sessionManager.createSession({
-          client: this.client,
-          channel,
-          mode: 'public',
-          ownerDiscordUserId: null,
-          guildId: schedule.guild_id,
-          category: schedule.category_name || null,
-          count: Number(schedule.question_count || 1)
-        });
-        await this.backendClient.markScheduleRun(schedule.id, { status: 'success' });
-      } catch (err) {
-        await this.handleScheduleError(schedule, err);
-      }
+      await this.runSchedule(schedule);
+    }
+  }
+
+  async runSchedule(schedule) {
+    try {
+      const channel = await this.resolveScheduleChannel(schedule);
+      if (!channel) return;
+      await this.sessionManager.createSession({
+        client: this.client,
+        channel,
+        mode: 'public',
+        ownerDiscordUserId: null,
+        guildId: schedule.guild_id,
+        category: schedule.category_name || null,
+        count: Number(schedule.question_count || 1)
+      });
+      await this.backendClient.markScheduleRun(schedule.id, { status: 'success' });
+    } catch (err) {
+      await this.handleScheduleError(schedule, err);
     }
   }
 

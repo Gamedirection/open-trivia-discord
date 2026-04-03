@@ -90,7 +90,19 @@ export class BackendClient {
     return this.request('/bot/categories');
   }
 
-  async createSchedule({ guildId, channelId, category, count = 1, scheduleKind, intervalMinutes, dailyTime }) {
+  async createSchedule({
+    guildId,
+    channelId,
+    category,
+    count = 1,
+    scheduleKind,
+    intervalMinutes,
+    intervalMinMinutes,
+    intervalMaxMinutes,
+    dailyTime,
+    commentMinCount,
+    commentMaxCount
+  }) {
     return this.request('/bot/schedules', {
       method: 'POST',
       body: {
@@ -100,7 +112,11 @@ export class BackendClient {
         questionCount: count,
         scheduleKind,
         intervalMinutes,
-        dailyTime
+        intervalMinMinutes,
+        intervalMaxMinutes,
+        dailyTime,
+        commentMinCount,
+        commentMaxCount
       }
     });
   }
@@ -129,6 +145,16 @@ export class BackendClient {
     return this.request(`/bot/schedules/${id}`, {
       method: 'PATCH',
       body: updates
+    });
+  }
+
+  async recordChannelComment({ guildId, channelId }) {
+    return this.request('/bot/schedules/comment-event', {
+      method: 'POST',
+      body: {
+        guildId,
+        channelId
+      }
     });
   }
 

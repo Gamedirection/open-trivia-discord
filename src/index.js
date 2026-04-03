@@ -196,7 +196,8 @@ async function handleHelpCommand(interaction) {
           '`/categories` lists available categories.',
           '`/leaderboard [category] [timeframe]` shows server and global standings.',
           '`/schedule-trivia list` shows every scheduled job in this server with the correct removal ID.',
-          '`/schedule-trivia daily|every` creates recurring trivia jobs.',
+          '`/schedule-trivia daily|every|random|comments` creates recurring trivia jobs.',
+          '`/schedule-trivia edit <id>` updates an existing scheduled job.',
           '`/schedule-trivia remove <id>` deletes a scheduled job by ID.'
         ].join('\n')
       },
@@ -230,11 +231,24 @@ async function handleHelpCommand(interaction) {
 }
 
 function describeSchedule(schedule) {
-  const mode = schedule.schedule_kind === 'daily'
-    ? `daily at ${schedule.daily_time}`
-    : `every ${schedule.interval_minutes >= 60 && schedule.interval_minutes % 60 === 0
+  let mode = 'unknown';
+  if (schedule.schedule_kind === 'daily') {
+    mode = `daily at ${schedule.daily_time}`;
+  } else if (schedule.schedule_kind === 'random_interval') {
+    const min = Number(schedule.interval_min_minutes || 1);
+    const max = Number(schedule.interval_max_minutes || min);
+    mode = `random every ${min}-${max} minute(s)`;
+  } else if (schedule.schedule_kind === 'comment_range') {
+    const min = Number(schedule.comment_min_count || 1);
+    const max = Number(schedule.comment_max_count || min);
+    const progress = Number(schedule.current_comment_count || 0);
+    const target = Number(schedule.next_comment_target || max);
+    mode = `after ${min}-${max} comments (${progress}/${target})`;
+  } else {
+    mode = `every ${schedule.interval_minutes >= 60 && schedule.interval_minutes % 60 === 0
       ? `${schedule.interval_minutes / 60} hour(s)`
       : `${schedule.interval_minutes} minute(s)`}`;
+  }
   const categoryLabel = schedule.category_name || 'Any category';
   const lastStatus = String(schedule.last_status || '').trim().toLowerCase();
   const statusLabel = lastStatus === 'failed'
@@ -242,11 +256,12 @@ function describeSchedule(schedule) {
     : lastStatus === 'success'
       ? 'last succeeded'
       : 'not run yet';
-  return `- ID \`${schedule.id}\` · <#${schedule.channel_id}> · ${categoryLabel} · ${mode} · ${schedule.question_count} question(s)${schedule.next_run ? ` · next ${new Date(schedule.next_run).toLocaleString()}` : ''} · ${statusLabel}`;
+  const nextLabel = schedule.next_run ? ` · next ${new Date(schedule.next_run).toLocaleString()}` : '';
+  return `- ID \`${schedule.id}\` · <#${schedule.channel_id}> · ${categoryLabel} · ${mode} · ${schedule.question_count} question(s)${nextLabel} · ${statusLabel}`;
 }
 
 function buildSchedulePages({ schedules, selectedChannelId }) {
-  const intro = 'Use `/schedule-trivia remove id:<ID>` to delete one schedule, or `id:ALL` to clear every schedule in this server.';
+  const intro = 'Use `/schedule-trivia edit id:<ID> ...` to update a job, `/schedule-trivia remove id:<ID>` to delete one, or `id:ALL` to clear every schedule in this server.';
   const noResults = selectedChannelId
     ? `No schedules configured for <#${selectedChannelId}>.`
     : 'No schedules configured for this server.';
@@ -404,6 +419,62 @@ async function handleScheduleCommand(interaction) {
     }
     return;
   }
+  if (subcommand === 'edit') {
+    const id = interaction.options.getInteger('id', true);
+    const category = interaction.options.getString('category');
+    const count = interaction.options.getInteger('count');
+    const selectedTarget = resolveScheduleTarget(interaction);
+    const time = interaction.options.getString('time');
+    const unit = interaction.options.getString('unit');
+    const interval = interaction.options.getInteger('interval');
+    const minInterval = interaction.options.getInteger('min_interval');
+    const maxInterval = interaction.options.getInteger('max_interval');
+    const minComments = interaction.options.getInteger('min_comments');
+    const maxComments = interaction.options.getInteger('max_comments');
+    const updates = { guildId: interaction.guildId };
+    if (interaction.options.get('channel') && selectedTarget.channelId) updates.channelId = selectedTarget.channelId;
+    if (category) updates.categoryName = category;
+    if (count) updates.questionCount = count;
+    if (time) {
+      updates.scheduleKind = 'daily';
+      updates.dailyTime = time;
+    } else if (interval !== null) {
+      if (!unit) {
+        await interaction.editReply({ content: 'Provide `unit` when editing a fixed interval.' });
+        return;
+      }
+      updates.scheduleKind = 'interval';
+      updates.intervalMinutes = unit === 'hours' ? interval * 60 : interval;
+    } else if (minInterval !== null || maxInterval !== null) {
+      if (minInterval === null || maxInterval === null || !unit) {
+        await interaction.editReply({ content: 'Provide `unit`, `min_interval`, and `max_interval` together for a random time range.' });
+        return;
+      }
+      updates.scheduleKind = 'random_interval';
+      updates.intervalMinMinutes = unit === 'hours' ? minInterval * 60 : minInterval;
+      updates.intervalMaxMinutes = unit === 'hours' ? maxInterval * 60 : maxInterval;
+    } else if (minComments !== null || maxComments !== null) {
+      if (minComments === null || maxComments === null) {
+        await interaction.editReply({ content: 'Provide both `min_comments` and `max_comments` for a comment-trigger schedule.' });
+        return;
+      }
+      updates.scheduleKind = 'comment_range';
+      updates.commentMinCount = minComments;
+      updates.commentMaxCount = maxComments;
+    } else if (unit) {
+      await interaction.editReply({ content: 'Provide matching interval values with `unit`.' });
+      return;
+    }
+    try {
+      const schedule = await backendClient.updateSchedule(id, updates);
+      await interaction.editReply({
+        content: `Updated schedule \`${schedule.id}\`.\n${describeSchedule(schedule)}`
+      });
+    } catch (err) {
+      await interaction.editReply({ content: `Could not update schedule: ${err.message}` });
+    }
+    return;
+  }
 
   const selectedChannel = resolveScheduleTarget(interaction);
   if (!selectedChannel.channelId) {
@@ -433,6 +504,29 @@ async function handleScheduleCommand(interaction) {
       count,
       scheduleKind: 'interval',
       intervalMinutes: unit === 'hours' ? every * 60 : every
+    };
+  } else if (subcommand === 'random') {
+    const unit = interaction.options.getString('unit', true);
+    const minInterval = interaction.options.getInteger('min_interval', true);
+    const maxInterval = interaction.options.getInteger('max_interval', true);
+    payload = {
+      guildId: interaction.guildId,
+      channelId: selectedChannel.channelId,
+      category,
+      count,
+      scheduleKind: 'random_interval',
+      intervalMinMinutes: unit === 'hours' ? minInterval * 60 : minInterval,
+      intervalMaxMinutes: unit === 'hours' ? maxInterval * 60 : maxInterval
+    };
+  } else if (subcommand === 'comments') {
+    payload = {
+      guildId: interaction.guildId,
+      channelId: selectedChannel.channelId,
+      category,
+      count,
+      scheduleKind: 'comment_range',
+      commentMinCount: interaction.options.getInteger('min_comments', true),
+      commentMaxCount: interaction.options.getInteger('max_comments', true)
     };
   }
   if (!payload) {
@@ -476,6 +570,19 @@ async function handlePromptedMessage(message) {
   if (message.author.bot) return;
   const channel = message.channel || await client.channels.fetch(message.channelId).catch(() => null);
   if (!channel) return;
+  if (message.guildId && message.channelId) {
+    try {
+      const dueSchedules = await backendClient.recordChannelComment({
+        guildId: message.guildId,
+        channelId: message.channelId
+      });
+      for (const schedule of dueSchedules) {
+        await scheduler.runSchedule(schedule);
+      }
+    } catch (err) {
+      console.error('Failed to process comment-trigger schedules', err);
+    }
+  }
   const isDm = channel?.isDMBased?.();
   const mentioned = message.mentions?.users?.has?.(client.user.id);
   if (!isDm && !mentioned) return;
