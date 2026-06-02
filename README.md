@@ -3,7 +3,7 @@
 
 # open-trivia-discord
 
-Discord bot service for Open-Trivia. This service is designed to live as its own deployment and call the main Open-Trivia backend over HTTP using a bot API token.
+Discord bot service for Open-Trivia. This service runs as its own deployment and calls the main Open-Trivia backend over HTTP using a bot API token.
 
 See [CHANGELOG.md](./CHANGELOG.md) for bot release history.
 

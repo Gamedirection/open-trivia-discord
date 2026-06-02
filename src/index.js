@@ -78,7 +78,7 @@ function leaderboardEmbed(result, title) {
         const accuracy = Number(row.total_answered || 0) > 0
           ? ` · ${Math.round((Number(row.correct_answered || 0) / Number(row.total_answered || 1)) * 100)}%`
           : '';
-        return `**${idx + 1}.** ${row.display_name || row.email || 'Player'} — ${row.score} pts${accuracy}`;
+        return `**${idx + 1}.** ${row.display_name || row.email || 'Player'} - ${row.score} pts${accuracy}`;
       }).join('\n')
     );
 }
