@@ -604,6 +604,27 @@ async function handlePromptedMessage(message) {
   }
 }
 
+async function handleSharePlayCommand(interaction) {
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  try {
+    const { code } = await backendClient.createSharePlayRoom();
+    const joinUrl = new URL('/?shareplay=' + code, backendClient.publicAppUrl).toString();
+    const embed = new EmbedBuilder()
+      .setTitle('Share Play Room Created')
+      .setDescription(`Room code: **${code}**\n\nClick the link below to join the room and start playing trivia with others.`)
+      .setColor(0x28a745)
+      .addFields(
+        { name: 'Join Link', value: `[Click to Join](${joinUrl})`, inline: false },
+        { name: 'Room Code', value: `\`${code}\``, inline: true }
+      )
+      .setFooter({ text: 'Open-Trivia Share Play' })
+      .setTimestamp();
+    await interaction.editReply({ embeds: [embed] });
+  } catch (err) {
+    await interaction.editReply({ content: `Could not create Share Play room: ${err.message}` });
+  }
+}
+
 client.once(Events.ClientReady, async (readyClient) => {
   console.log(`Discord bot ready as ${readyClient.user.tag}`);
   readyClient.user.setActivity('Open-Trivia', { type: ActivityType.Playing });
@@ -655,6 +676,9 @@ client.on('interactionCreate', async (interaction) => {
   }
   if (interaction.commandName === 'schedule-trivia') {
     await handleScheduleCommand(interaction);
+  }
+  if (interaction.commandName === 'shareplay') {
+    await handleSharePlayCommand(interaction);
   }
 });
 

@@ -212,7 +212,10 @@ export function buildCommandDefinitions() {
         subcommand
           .setName('remove')
           .setDescription('Remove a schedule by ID, or use ALL to clear every schedule in this server')
-          .addStringOption((option) =>
-            option.setName('id').setDescription('Schedule ID from /schedule-trivia list, or ALL').setRequired(true)))
+      .addStringOption((option) =>
+        option.setName('id').setDescription('Schedule ID from /schedule-trivia list, or ALL').setRequired(true))),
+    new SlashCommandBuilder()
+      .setName('shareplay')
+      .setDescription('Create a Share Play room and get a join link for others.')
   ].map((command) => command.toJSON());
 }

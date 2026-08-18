@@ -182,4 +182,11 @@ export class BackendClient {
     url.searchParams.set('target', '/');
     return url.toString();
   }
+
+  async createSharePlayRoom() {
+    return this.request('/api/shareplay/create-room', {
+      method: 'POST',
+      body: {}
+    });
+  }
 }
